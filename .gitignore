@@ -1,0 +1,21 @@
+.venv/
+build/
+dist/
+data/
+__pycache__/
+*.pyc
+
+# Local diagnostics, personal integration probes and generated specifications
+test-artifacts/
+tests/live/
+.checkpoints/
+*.spec
+
+# Local credentials and editor state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vscode/
+.idea/

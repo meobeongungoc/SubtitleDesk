@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "SubtitleDesk — Tìm phụ đề",
+  "version": "0.1.0",
+  "description": "Gửi trang hoặc văn bản đã chọn sang SubtitleDesk khi bạn yêu cầu.",
+  "permissions": ["activeTab", "contextMenus", "nativeMessaging"],
+  "action": {"default_popup": "popup.html", "default_title": "SubtitleDesk"},
+  "background": {"service_worker": "background.js"}
+}
