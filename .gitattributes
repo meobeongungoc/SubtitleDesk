@@ -9,4 +9,4 @@
 *.png binary
 *.ico binary
 # Preserve original dataset bytes for provenance hashes.
-subtitledesk/assets/vocabulary/*.csv -text
+subtitledesk/assets/vocabulary/*.csv -text -whitespace
