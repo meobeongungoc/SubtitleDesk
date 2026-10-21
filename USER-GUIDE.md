@@ -1,4 +1,4 @@
-# SubtitleDesk 0.5.1
+# SubtitleDesk 0.6.0
 
 ## Appearance
 

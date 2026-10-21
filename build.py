@@ -64,7 +64,7 @@ def main():
         for folder in ("subtitledesk", "scripts", "tests", "examples", "extensions"):
             files.extend(p for p in (ROOT / folder).rglob("*") if p.is_file()
                          and "__pycache__" not in p.parts and p.suffix.lower() in
-                         (".py", ".ps1", ".cjs", ".js", ".json", ".html", ".css", ".md", ".png", ".ico"))
+                         (".py", ".ps1", ".cjs", ".js", ".json", ".html", ".css", ".md", ".txt", ".csv", ".png", ".ico"))
         for path in sorted(files):
             archive.write(path, Path("SubtitleDesk") / path.relative_to(ROOT))
     import hashlib

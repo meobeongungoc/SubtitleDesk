@@ -1,0 +1,11 @@
+{
+  "baseline_license": "CEFR-J citation required",
+  "revision": "d4e45b75b38f27b30dfc5c44d8c571aec7e7092f",
+  "repository": "https://github.com/openlanguageprofiles/olp-en-cefrj",
+  "files": {
+    "cefrj-vocabulary-profile-1.5.csv": "b0dd3c635f1c9a4fdf1490c7e5b7c48e8bbe55b652ad0c9860a95f98e10ae498",
+    "octanove-vocabulary-profile-c1c2-1.0.csv": "18c33a407f2f89f7b8de9671c6d45fe3ea0bce45e7d2d7dcaab48d73e0f7b380"
+  },
+  "advanced_license": "CC-BY-SA-4.0",
+  "retrieved": "2026-10-21"
+}

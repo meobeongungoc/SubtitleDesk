@@ -127,6 +127,8 @@ class ThemeManager:
         s.configure('TLabelframe', background=bg)
         s.configure('TLabelframe.Label', background=bg, foreground='#adbac9')
         s.configure('TPanedwindow', background=bg)
+        s.configure('Horizontal.TProgressbar', background=accent, troughcolor=panel,
+                    bordercolor=control, lightcolor=accent, darkcolor=accent, thickness=5)
         for orient in ('Vertical','Horizontal'):
             s.configure(orient+'.TScrollbar', background=control, arrowcolor='#adbac9', troughcolor=panel)
         for option, value in [('background',panel), ('foreground','#e8edf3'),

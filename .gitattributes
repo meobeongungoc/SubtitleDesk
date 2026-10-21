@@ -8,3 +8,5 @@
 *.cmd text eol=crlf
 *.png binary
 *.ico binary
+# Preserve original dataset bytes for provenance hashes.
+subtitledesk/assets/vocabulary/*.csv -text

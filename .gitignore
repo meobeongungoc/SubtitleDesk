@@ -17,5 +17,6 @@ tests/live/
 !.env.example
 *.pem
 *.key
+*-Anki.txt
 .vscode/
 .idea/

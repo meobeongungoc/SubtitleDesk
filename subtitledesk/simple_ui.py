@@ -64,6 +64,7 @@ class SimpleLibraryUI(LibraryUI):
         ttk.Button(utility, text="Appearance", image=icon("appearance"), compound="left", command=self.app.show_appearance).pack(side="right", padx=5)
         ttk.Button(utility, text="Torrents", image=icon("torrent"), compound="left", command=self.app.show_torrents).pack(side="right")
         ttk.Button(utility, text="Preview", image=icon("play"), compound="left", command=lambda: self.app.show_tools(self.app.workflow)).pack(side="right", padx=5)
+        ttk.Button(utility, text="Vocabulary…", command=self.show_vocabulary).pack(side="right", padx=5)
         info = ttk.Frame(self.btab)
         info.pack(fill="x", pady=(0, 9))
         self.language_label = tk.StringVar(value=CODE_TO_LABEL.get(self.language.get(), "Vietnamese"))
@@ -128,6 +129,16 @@ class SimpleLibraryUI(LibraryUI):
         ttk.Label(footer, textvariable=self.bstatus, wraplength=1080).pack(anchor="w", pady=(0,3))
         self.notice = tk.StringVar(value="Existing subtitles are skipped. Video files are never renamed.")
         ttk.Label(footer, textvariable=self.notice, style="Hint.TLabel", wraplength=1080).pack(anchor="w")
+
+    def show_vocabulary(self):
+        from .vocabulary_ui import VocabularyWindow
+        current = getattr(self, 'vocabulary_window', None)
+        if current and current.window.winfo_exists():
+            current.window.deiconify()
+            current.window.lift()
+            return
+        folder = self.library_folders.get(self.movie_choice.get(), getattr(self, 'current_folder', ''))
+        self.vocabulary_window = VocabularyWindow(self.app, folder)
 
     def set_rows(self, rows):
         self.auto_pending.clear()
@@ -309,6 +320,7 @@ class SimpleLibraryUI(LibraryUI):
         def done(rows):
             self.batch_busy = False
             if rows is not None:
+                self.current_folder = str(folder)
                 self.set_rows(rows)
                 self.bstatus.set("Select a movie to compare both sources. Click Find subtitles to search the folder.")
         self.run(lambda: scan_folder(folder, recursive, title, season), done)
