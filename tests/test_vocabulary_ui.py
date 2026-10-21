@@ -6,9 +6,58 @@ import unittest
 from unittest.mock import patch
 
 from subtitledesk.gui import Application
+from subtitledesk.vocabulary import Card, Report
+from subtitledesk.storage import dialog_directory
 
 
 class VocabularyUITests(unittest.TestCase):
+    def test_independent_dialog_folders_survive_restart_and_cancel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp).resolve()
+            movie, chosen, output = (home/name for name in ('Movie library', 'Vocabulary input', 'Anki output'))
+            for path in (movie, chosen, output):path.mkdir()
+            app = Application(home)
+            try:
+                app.settings['library_root'] = str(movie)
+                app.library.current_folder = str(movie)
+                app.library.show_vocabulary()
+                dialog = app.library.vocabulary_window
+                with patch('subtitledesk.vocabulary_ui.filedialog.askdirectory', return_value=str(chosen)) as picker:
+                    dialog.browse()
+                    self.assertEqual(Path(picker.call_args.kwargs['initialdir']), movie)
+                self.assertEqual(Path(app.settings['vocabulary_input_dir']), chosen)
+                self.assertEqual(Path(app.settings['library_root']), movie)
+                dialog.report = Report(movie, cards=[Card('meticulous', 'C2', ('adjective',), count=1,
+                    examples=[('A meticulous plan.', 'Episode.en.srt', '00:00:01,000')], files={'Episode.en.srt'})])
+                with patch('subtitledesk.vocabulary_ui.filedialog.asksaveasfilename', return_value=str(output/'Cards.txt')) as picker:
+                    dialog.export()
+                    self.assertEqual(Path(picker.call_args.kwargs['initialdir']), movie)
+                self.assertEqual(Path(app.settings['vocabulary_export_dir']), output)
+                self.assertEqual(Path(app.settings['vocabulary_input_dir']), chosen)
+                with patch('subtitledesk.simple_ui.filedialog.askdirectory', return_value='') as picker:
+                    app.library.scan()
+                    self.assertEqual(Path(picker.call_args.kwargs['initialdir']), movie)
+            finally:
+                app.close()
+            resumed = Application(home)
+            try:
+                resumed.library.show_vocabulary()
+                dialog = resumed.library.vocabulary_window
+                self.assertEqual(Path(dialog.folder.get()), chosen)
+                with patch('subtitledesk.vocabulary_ui.filedialog.askdirectory', return_value='') as picker:
+                    dialog.browse()
+                    self.assertEqual(Path(picker.call_args.kwargs['initialdir']), chosen)
+                    self.assertEqual(Path(resumed.settings['vocabulary_input_dir']), chosen)
+                dialog.report = Report(movie, cards=[Card('meticulous', 'C2', ('adjective',), count=1,
+                    examples=[('A meticulous plan.', 'Episode.en.srt', '00:00:01,000')], files={'Episode.en.srt'})])
+                with patch('subtitledesk.vocabulary_ui.filedialog.asksaveasfilename', return_value='') as picker:
+                    dialog.export()
+                    self.assertEqual(Path(picker.call_args.kwargs['initialdir']), output)
+                    self.assertEqual(Path(resumed.settings['vocabulary_export_dir']), output)
+                self.assertEqual(Path(dialog_directory(output/'Deleted folder')), output)
+            finally:
+                resumed.close()
+
     def test_scan_preview_export_and_reopen(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

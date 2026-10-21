@@ -9,6 +9,7 @@ from ctypes import wintypes
 DEFAULTS = {
     "theme": "blue",
     "library_root": "", "library_selection": "",
+    "vocabulary_input_dir": "", "vocabulary_export_dir": "",
     "glass_strength": 10,
     "font_family": "Segoe UI",
     "languages": "vi,en", "player_kind": "MPC-BE",
@@ -17,6 +18,21 @@ DEFAULTS = {
     "qbit_url": "http://127.0.0.1:18080", "qbit_username": "subtitledesk",
     "qbit_exe": r"D:\Program\qBittorrent\qbittorrent.exe", "qbit_auto": False,
 }
+
+
+def dialog_directory(*locations):
+    """Use the last confirmed folder, or its nearest surviving parent."""
+    for location in locations:
+        if not location:
+            continue
+        try:
+            path = Path(location).expanduser()
+            for candidate in (path, *path.parents):
+                if candidate.is_dir():
+                    return str(candidate)
+        except (OSError, ValueError, RuntimeError):
+            continue
+    return None
 
 
 def write_json(path: Path, value):

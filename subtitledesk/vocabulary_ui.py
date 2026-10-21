@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from .vocabulary import Cancelled, extract_folder, export_anki
+from .storage import dialog_directory
 
 
 class VocabularyWindow:
@@ -22,7 +23,8 @@ class VocabularyWindow:
         self.report = None
         self.busy = False
         self.closed = False
-        self.folder = tk.StringVar(master=self.window, value=str(folder or ''))
+        self.folder = tk.StringVar(master=self.window, value=dialog_directory(
+            folder, app.settings.get('vocabulary_input_dir'), app.settings.get('library_root')) or '')
         self.levels = tk.StringVar(master=self.window, value='C1 + C2')
         self.status = tk.StringVar(master=self.window, value='Choose the movie folder, then scan its English subtitles.')
         body = ttk.Frame(self.window, padding=16)
@@ -82,9 +84,16 @@ class VocabularyWindow:
             self.status.set('Folder or levels changed. Scan again to refresh the preview.')
 
     def browse(self):
-        folder = filedialog.askdirectory(parent=self.window, title='Choose movie folder', initialdir=self.folder.get() or None)
+        folder = filedialog.askdirectory(parent=self.window, title='Choose movie folder', initialdir=dialog_directory(
+            self.app.settings.get('vocabulary_input_dir'), self.folder.get(), self.app.settings.get('library_root')))
         if folder:
             self.folder.set(folder)
+            self.remember_directory('vocabulary_input_dir', folder)
+
+    def remember_directory(self, key, folder):
+        if Path(folder).is_dir():
+            self.app.settings[key] = str(Path(folder).resolve())
+            self.app.persist(False)
 
     def scan(self):
         if self.busy:
@@ -93,6 +102,7 @@ class VocabularyWindow:
         if not folder or not Path(folder).is_dir():
             self.status.set('Choose an existing movie folder.')
             return
+        self.remember_directory('vocabulary_input_dir', folder)
         self.cancel.clear()
         self.busy = True
         self.report = None
@@ -160,10 +170,12 @@ class VocabularyWindow:
         if not self.report or self.busy:
             return
         path = filedialog.asksaveasfilename(parent=self.window, title='Export vocabulary for Anki',
+            initialdir=dialog_directory(self.app.settings.get('vocabulary_export_dir'), self.report.root),
             initialfile=self.report.root.name + '-C1-C2-Anki.txt', defaultextension='.txt',
             filetypes=[('Anki text file', '*.txt')], confirmoverwrite=False)
         if not path:
             return
+        self.remember_directory('vocabulary_export_dir', Path(path).parent)
         try:
             export_anki(self.report, path)
         except FileExistsError:

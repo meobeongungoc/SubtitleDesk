@@ -11,7 +11,7 @@ from .library_ui import LibraryUI, table
 from .batch import Episode, scan_folder, rank, exact_filename
 from .core import Movie, match_score, decode_subtitle, save_subtitle, MAX_SUBTITLE, SUB_EXTENSIONS
 from .providers import Query, Result
-from .storage import write_json
+from .storage import write_json, dialog_directory
 from .languages import LANGUAGES, LABEL_TO_CODE, CODE_TO_LABEL
 from .library_folders import discover_library
 
@@ -263,7 +263,7 @@ class SimpleLibraryUI(LibraryUI):
             self.bstatus.set('Finish or cancel the current subtitle queue before changing the library.')
             return
         folder = filedialog.askdirectory(title="Set library and qBittorrent download folder",
-                                        initialdir=self.app.settings.get('library_root') or None)
+                                        initialdir=dialog_directory(self.app.settings.get('library_root')))
         if folder:
             self.app.settings['library_root'] = folder
             self.app.settings['library_selection'] = ''
