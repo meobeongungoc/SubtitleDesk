@@ -5,7 +5,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from subtitledesk.qbittorrent import QbitClient, QbitError, content_file
+from subtitledesk.qbittorrent import QbitClient, QbitError, DownloadShutdown, content_file
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -68,6 +68,27 @@ class QbitTests(unittest.TestCase):
 
     def test_login_cookie_and_list(self):
         self.assertEqual(self.client().torrents(), [])
+
+    def test_graceful_shutdown_endpoint(self):
+        self.client().shutdown()
+        self.assertEqual(Handler.calls[-1], ("/api/v2/app/shutdown", {}))
+
+    def test_download_shutdown_waits_for_real_completion_and_idle_work(self):
+        monitor = DownloadShutdown()
+        finished = [{"progress": 1.0, "state": "uploading"}]
+        downloading = [{"progress": .8, "state": "downloading"}]
+        self.assertFalse(monitor.update([{"progress": 1.0, "state": "checkingUP"}]))
+        self.assertFalse(monitor.update(finished))
+        self.assertFalse(monitor.update(downloading))
+        self.assertFalse(monitor.update(finished, busy=True))
+        self.assertFalse(monitor.update(finished))
+        self.assertTrue(monitor.update(finished))
+        self.assertFalse(monitor.update(finished))
+        monitor.added()
+        self.assertFalse(monitor.update([]))
+        self.assertFalse(monitor.update([{"progress": 1.0, "state": "checkingUP"}]))
+        self.assertFalse(monitor.update(finished))
+        self.assertTrue(monitor.update(finished))
 
     def test_search_seeds_peers_and_cleanup(self):
         client = self.client()

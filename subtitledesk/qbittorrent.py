@@ -15,6 +15,35 @@ class QbitError(Exception):
     pass
 
 
+class DownloadShutdown:
+    """Request one shutdown after an observed download finishes everywhere."""
+
+    def __init__(self):
+        self.observed = False
+        self.complete_checks = 0
+
+    def added(self):
+        self.observed = True
+        self.complete_checks = 0
+
+    def update(self, torrents, busy=False):
+        if any(t.get("progress", 0) < 1 for t in torrents):
+            self.added()
+            return False
+        if any(t.get("state") in {"moving", "checkingUP", "checkingResumeData"} for t in torrents):
+            self.complete_checks = 0
+            return False
+        if not self.observed or not torrents or busy:
+            self.complete_checks = 0
+            return False
+        self.complete_checks += 1
+        if self.complete_checks < 2:
+            return False
+        self.observed = False
+        self.complete_checks = 0
+        return True
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         raise QbitError("Unexpected API redirect; check the qBittorrent address.")
@@ -102,6 +131,10 @@ class QbitClient:
 
     def torrents(self, torrent_hash=None):
         return self.request("torrents/info", {"hashes": torrent_hash} if torrent_hash else None)
+
+    def shutdown(self):
+        """Ask qBittorrent to exit, including when its window is in the tray."""
+        self.request("app/shutdown", post=True, raw=True)
 
     def files(self, torrent_hash):
         return self.request("torrents/files", {"hash": torrent_hash})

@@ -65,7 +65,7 @@ def main():
         SecretStore(data_root).set("qbittorrent", "password", password)
         settings = load_settings(data_root)
         settings.update(qbit_url="http://127.0.0.1:18080", qbit_username="subtitledesk",
-                        qbit_exe=r"D:\Program\qBittorrent\qbittorrent.exe", qbit_auto=True)
+                        qbit_exe=r"D:\Program\qBittorrent\qbittorrent.exe")
         write_json(data_root / "settings.json", settings)
     temporary = config.with_suffix(".subtitledesk.tmp")
     temporary.write_text("\n".join(output) + "\n", encoding="utf-8")

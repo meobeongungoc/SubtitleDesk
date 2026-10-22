@@ -9,7 +9,7 @@ from tkinter import ttk, filedialog, messagebox
 from .batch import Episode, identify, scan_folder, rank, select_file, save_episode, existing_subtitle
 from .core import Movie, VIDEO_EXTENSIONS, unpack_subtitles, decode_subtitle
 from .providers import Query, Context
-from .qbittorrent import QbitClient, QbitError, content_file
+from .qbittorrent import QbitClient, QbitError, DownloadShutdown, content_file
 from .sources import error_text
 
 
@@ -87,6 +87,8 @@ class LibraryUI:
         self.cache = None
         self.prepared = {}
         self.stopped = False
+        self.download_shutdown = DownloadShutdown()
+        self.shutting_down_qbit = False
         self.qtab = ttk.Frame(app.torrent_window, padding=10)
         self.qtab.pack(fill="both", expand=True)
         self.btab = ttk.Frame(app.main_content)
@@ -94,8 +96,6 @@ class LibraryUI:
         self.build_qbit()
         self.build_batch()
         self.root.after(250, self.poll)
-        if app.settings.get("qbit_auto", False):
-            self.root.after(700, self.connect)
 
     def run(self, function, callback=None):
         def worker():
@@ -114,7 +114,6 @@ class LibraryUI:
         self.quser = tk.StringVar(value=s.get("qbit_username", "subtitledesk"))
         self.qpassword = tk.StringVar()
         self.qexe = tk.StringVar(value=s.get("qbit_exe", r"D:\Program\qBittorrent\qbittorrent.exe"))
-        self.auto = tk.BooleanVar(value=s.get("qbit_auto", False))
         setup = ttk.LabelFrame(self.qtab, text="Local connection", padding=6)
         setup.pack(fill="x")
         for col, (label, var, width) in enumerate((
@@ -123,8 +122,8 @@ class LibraryUI:
             ttk.Entry(setup, textvariable=var, width=width, show="•" if col == 2 else "").grid(row=1, column=col, sticky="ew", padx=(0, 6))
             setup.columnconfigure(col, weight=1)
         ttk.Button(setup, text="Connect / open qBittorrent", command=self.connect).grid(row=1, column=3)
-        ttk.Checkbutton(setup, text="Automatically connect and open qBittorrent when needed", variable=self.auto,
-                        command=self.persist).grid(row=2, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Label(setup, text="qBittorrent opens when you enter Torrents and exits after observed downloads finish.",
+                  style="Hint.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=4)
         ttk.Button(setup, text="Choose qbittorrent.exe…", command=self.pick_qexe).grid(row=2, column=2, sticky="w")
         self.qstatus = tk.StringVar(value="Not connected. Enable WebUI or use the existing connection settings.")
         ttk.Label(self.qtab, textvariable=self.qstatus, wraplength=1000).pack(anchor="w", pady=4)
@@ -168,7 +167,7 @@ class LibraryUI:
 
     def persist(self):
         self.app.settings.update(qbit_url=self.qurl.get().strip(), qbit_username=self.quser.get().strip(),
-                                 qbit_exe=self.qexe.get(), qbit_auto=self.auto.get())
+                                 qbit_exe=self.qexe.get())
         self.app.persist(False)
 
     def pick_qexe(self):
@@ -178,7 +177,7 @@ class LibraryUI:
             self.persist()
 
     def connect(self):
-        if self.connecting or self.searching or self.batch_busy:
+        if self.connected or self.connecting or self.shutting_down_qbit or self.searching or self.batch_busy:
             return
         if self.qpassword.get():
             self.app.secrets.set("qbittorrent", "password", self.qpassword.get())
@@ -220,28 +219,45 @@ class LibraryUI:
             return
         self.refreshing = True
         self.last_refresh = time.monotonic()
-        def done(values):
+        def done(torrents):
             self.refreshing = False
-            if values is None:
+            if torrents is None:
                 self.connected = False
                 return
-            self.torrents = {t["hash"]: t for t in values}
+            self.torrents = {t["hash"]: t for t in torrents}
             for item in self.downloads.get_children():
                 if item not in self.torrents:
                     self.downloads.delete(item)
             for key, torrent in self.torrents.items():
                 eta = torrent.get("eta", -1)
-                values = (torrent["name"], f"{torrent.get('progress', 0)*100:.1f}%",
+                row_values = (torrent["name"], f"{torrent.get('progress', 0)*100:.1f}%",
                           f"{count(torrent.get('num_seeds'))} / {count(torrent.get('num_complete'))}",
                           f"{count(torrent.get('num_leechs'))} / {count(torrent.get('num_incomplete'))}",
                           size(torrent.get("dlspeed", 0)) + "/s", size(torrent.get("upspeed", 0)) + "/s",
                           size(torrent.get("size", 0)),
                           "—" if eta < 0 or eta >= 8640000 else f"{eta // 60} minutes", torrent.get("state"))
                 if self.downloads.exists(key):
-                    self.downloads.item(key, values=values)
+                    self.downloads.item(key, values=row_values)
                 else:
-                    self.downloads.insert("", "end", iid=key, values=values)
+                    self.downloads.insert("", "end", iid=key, values=row_values)
+            if self.download_shutdown.update(torrents, busy=(self.searching or self.batch_busy or
+                                               bool(self.queued and self.wait_download.get()))):
+                self.shutdown_qbit()
         self.run(lambda: self.client.torrents(), done)
+
+    def shutdown_qbit(self):
+        if self.shutting_down_qbit or not self.connected:
+            return
+        self.shutting_down_qbit = True
+        self.connected = False
+        self.qstatus.set("All observed downloads finished. Closing qBittorrent…")
+        client = self.client
+        def done(value):
+            self.shutting_down_qbit = False
+            if value:
+                self.qstatus.set("qBittorrent is closing after downloads completed. Open Torrents to start it again.")
+                self.app.status.set("qBittorrent is closing after downloads completed.")
+        self.run(lambda: (client.shutdown(), True)[1], done)
 
     def show_peers(self):
         selected = self.downloads.selection()
@@ -311,6 +327,7 @@ class LibraryUI:
             return True
         def done(ok):
             if ok:
+                self.download_shutdown.added()
                 self.qstatus.set("Torrent added. Select it in Downloads to find subtitles.")
                 self.refresh()
         self.run(job, done)
@@ -700,7 +717,7 @@ class LibraryUI:
         now = time.monotonic()
         if self.connected and now - self.last_refresh > 5:
             self.refresh()
-        if self.queued and self.wait_download.get() and not self.batch_busy and now - self.last_batch > 10:
+        if self.connected and self.queued and self.wait_download.get() and not self.batch_busy and now - self.last_batch > 10:
             self.download_batch(automatic=True)
         self.root.after(150, self.poll)
 

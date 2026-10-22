@@ -1,4 +1,4 @@
-# SubtitleDesk 0.6.1
+# SubtitleDesk 0.6.2
 
 ## Appearance
 
@@ -98,6 +98,13 @@ Choosing a different folder replaces the active list and queue.
 Open **Torrents** to connect to qBittorrent, view downloads or search its installed plugins.
 The local connection on this machine is `http://127.0.0.1:18080`.
 Use **Import selected movie files** to bring a torrent's episode list into the main window.
+
+Opening SubtitleDesk or changing the movie library does not start qBittorrent. Opening **Torrents**
+connects to it or starts it if needed. While SubtitleDesk remains open, it watches downloads it has
+observed. After every torrent has finished downloading and any prepared subtitles have been applied,
+it asks qBittorrent to exit through its WebUI, including when qBittorrent is in the system tray.
+An incomplete, paused or checking torrent keeps qBittorrent open. Opening **Torrents** again starts it
+when you need another search or download. If SubtitleDesk is closed, it cannot watch for completion.
 
 You can add a selected search result, magnet/URL or `.torrent` file. The normal app asks for a save
 folder and confirmation before adding a torrent. A new film does not require a new Python script.

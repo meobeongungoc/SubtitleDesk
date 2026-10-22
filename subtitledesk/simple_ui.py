@@ -270,7 +270,6 @@ class SimpleLibraryUI(LibraryUI):
             self.movie_choice.set('')
             self.app.persist(False)
             self.refresh_library()
-            self.connect()
 
     def refresh_library(self):
         folder = self.app.settings.get('library_root', '')

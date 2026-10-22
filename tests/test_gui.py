@@ -11,6 +11,50 @@ from test_core import SRT, archive
 
 
 class GuiTests(unittest.TestCase):
+    def test_torrent_refresh_waits_then_requests_shutdown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = Application(Path(directory))
+            app.root.withdraw()
+            try:
+                library = app.library
+                torrent = {"hash": "fixture", "name": "Example", "progress": .5,
+                           "state": "downloading", "size": 100, "eta": 10}
+                library.client = Mock()
+                library.client.torrents.return_value = [torrent]
+                library.connected = True
+                library.run = lambda job, done: done(job())
+                with patch.object(library, "shutdown_qbit") as shutdown:
+                    library.refresh()
+                    torrent["progress"], torrent["state"] = 1.0, "uploading"
+                    library.refresh()
+                    shutdown.assert_not_called()
+                    library.refresh()
+                    shutdown.assert_called_once_with()
+            finally:
+                app.close()
+
+    def test_qbittorrent_starts_only_when_torrents_opened(self):
+        from subtitledesk.library_ui import LibraryUI
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "data").mkdir()
+            (root / "data" / "settings.json").write_text('{"qbit_auto": true}', encoding="utf-8")
+            with patch.object(LibraryUI, "connect") as connect:
+                app = Application(root)
+                app.root.withdraw()
+                try:
+                    app.root.update()
+                    time.sleep(.8)
+                    app.root.update()
+                    connect.assert_not_called()
+                    with patch("subtitledesk.simple_ui.filedialog.askdirectory", return_value=str(root)):
+                        app.library.scan()
+                    connect.assert_not_called()
+                    app.show_torrents()
+                    connect.assert_called_once_with()
+                finally:
+                    app.close()
+
     def test_batch_search_save_pack_once_and_open(self):
         from subtitledesk.providers import Registry, Capabilities, Page, Result, SearchEngine
         from subtitledesk.batch import scan_folder

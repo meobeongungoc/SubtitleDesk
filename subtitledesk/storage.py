@@ -16,7 +16,7 @@ DEFAULTS = {
     "player_path": r"D:\Program\MPC-BE\mpc-be64.exe", "output_dir": "",
     "save_beside": True, "geometry": "1080x780", "disabled_sources": [],
     "qbit_url": "http://127.0.0.1:18080", "qbit_username": "subtitledesk",
-    "qbit_exe": r"D:\Program\qBittorrent\qbittorrent.exe", "qbit_auto": False,
+    "qbit_exe": r"D:\Program\qBittorrent\qbittorrent.exe",
 }
 
 

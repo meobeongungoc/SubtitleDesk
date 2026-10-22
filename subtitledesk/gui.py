@@ -248,6 +248,7 @@ class Application:
     def show_torrents(self):
         self.torrent_window.deiconify()
         self.torrent_window.lift()
+        self.library.connect()
 
     def show_subtitles(self):
         self.torrent_window.withdraw()

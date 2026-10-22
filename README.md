@@ -17,7 +17,7 @@ Subtitles are saved with the same base name as the video, so supported players c
 
 ## More than subtitle search
 
-- **qBittorrent:** view downloads, search installed torrent plugins, and bring episode files into SubtitleDesk, even while a download is in progress.
+- **qBittorrent:** view downloads, search installed torrent plugins, and bring episode files into SubtitleDesk, even while a download is in progress. qBittorrent starts when you open Torrents and exits after observed downloads finish while SubtitleDesk is running.
 - **Anki vocabulary export:** collect advanced English words from subtitle files in a folder and export them as a text file for Anki.
 - **MPC-BE:** open a completed video with its selected subtitle.
 - **Browser connection:** optionally send a page title, URL, or text you select from Edge, Chrome, or Firefox to the app.
