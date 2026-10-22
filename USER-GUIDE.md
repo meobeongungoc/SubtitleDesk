@@ -1,4 +1,4 @@
-# SubtitleDesk 0.6.2
+# SubtitleDesk 0.6.3
 
 ## Appearance
 
@@ -55,6 +55,15 @@ The window shows three lists at the same time:
 
 Click **Find subtitles** to search the folder. Select a movie on the left to compare both sources.
 Double-click a movie to correct its title, year, season or episode. Video files are never renamed.
+
+To remove videos from the library, select one or more rows in **Movie files** using Ctrl+click
+or Shift+click, then right-click and choose **Move selected videos to Recycle Bin**.
+Confirm the selected filenames before moving them. Only
+the video files move to the Windows Recycle Bin; matching subtitle files stay in their folders.
+This action is available for videos on a local fixed drive inside the chosen movie library.
+Finish active subtitle work first. Videos imported directly from an active qBittorrent torrent
+cannot be moved here. If qBittorrent still manages a folder-scanned video, it may download
+the file again.
 
 The language menu lists **Vietnamese**, **English**, **Vietnamese + English**, then other languages.
 The choice filters both source lists. With both selected, Vietnamese exact matches take priority.

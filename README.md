@@ -22,6 +22,7 @@ Subtitles are saved with the same base name as the video, so supported players c
 - **MPC-BE:** open a completed video with its selected subtitle.
 - **Browser connection:** optionally send a page title, URL, or text you select from Edge, Chrome, or Firefox to the app.
 - **Personalize the app:** choose one of four themes and a font installed on Windows.
+- **Manage episodes:** select one or several videos and move them to the Windows Recycle Bin from the movie list.
 
 ## Get started
 

@@ -27,11 +27,11 @@ def count(value):
     return "?" if value is None or value < 0 else str(value)
 
 
-def table(frame, columns, height=8):
+def table(frame, columns, height=8, selectmode="browse"):
     container = ttk.Frame(frame)
     container.pack(fill="both", expand=True, pady=6)
     view = ttk.Treeview(container, columns=[c[0] for c in columns], show="headings",
-                        selectmode="browse", height=height)
+                        selectmode=selectmode, height=height)
     for key, label, width in columns:
         view.heading(key, text=label, anchor="w", command=lambda k=key: sort_table(view, k))
         view.column(key, width=width, minwidth=40)
@@ -424,8 +424,9 @@ class LibraryUI:
                 "✓" if row.enabled else "", row.path.name, row.movie.title, row.movie.season,
                 row.movie.episode, f"{row.progress*100:.0f}%",
                 f"{row.selected.provider}: {row.selected.release}" if row.selected else "", row.state))
-        if chosen and self.batch_table.exists(chosen[0]):
-            self.batch_table.selection_set(chosen[0])
+        kept = [item for item in chosen if self.batch_table.exists(item)]
+        if kept:
+            self.batch_table.selection_set(kept)
 
     def scan(self):
         if self.batch_busy:
@@ -447,7 +448,8 @@ class LibraryUI:
 
     def selected_row(self):
         selected = self.batch_table.selection()
-        return int(selected[0]) if selected else None
+        focused = self.batch_table.focus()
+        return int(focused if focused in selected else selected[0]) if selected else None
 
     def toggle(self):
         index = self.selected_row()

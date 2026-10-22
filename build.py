@@ -47,6 +47,12 @@ def main():
     licenses = app / "licenses"
     licenses.mkdir(exist_ok=True)
     shutil.copy2(Path(sys.base_prefix) / "LICENSE.txt", licenses / "Python-LICENSE.txt")
+    from importlib.metadata import distribution
+    trash_package = distribution("Send2Trash")
+    trash_license_file = next(path for path in trash_package.files
+                              if path.parts[-2:] == ("licenses", "LICENSE"))
+    trash_license = Path(trash_package.locate_file(trash_license_file))
+    shutil.copy2(trash_license, licenses / "Send2Trash-LICENSE.txt")
     # Publish current build by copying; preserve user data on subsequent rebuilds.
     shutil.copytree(app, DIST / "SubtitleDesk", dirs_exist_ok=True)
     shutil.make_archive(str(DIST / "extension-chromium"), "zip", app / "extensions" / "chromium")

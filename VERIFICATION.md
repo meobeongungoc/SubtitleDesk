@@ -1,4 +1,18 @@
-# Kết quả kiểm tra — 20/10/2026
+# Kết quả kiểm tra — 22/10/2026
+
+## Cập nhật 0.6.3
+
+- Chọn nhiều tập bằng Ctrl/Shift+click, giữ lựa chọn khi danh sách được vẽ lại;
+  chuột phải mở lệnh chuyển các video được chọn vào Thùng rác Windows.
+- Thử luồng GUI thật bằng hai file video mẫu: cả hai biến mất khỏi thư mục,
+  xuất hiện trong Thùng rác và phụ đề cạnh phim vẫn ở nguyên vị trí.
+- Đã kiểm tra hủy ở hộp xác nhận, giữ nhiều lựa chọn khi chuột phải, chặn
+  tập nhập từ torrent đang được qBittorrent quản lý. 68 kiểm thử hiện có đạt.
+- Bản ZIP đóng gói đã chạy được sau khi giải nén; có các thành phần Windows
+  cần cho thao tác Thùng rác và giấy phép Send2Trash, không chứa `data/`.
+- Chưa thử thao tác xóa trên video thật dung lượng lớn hoặc từ bản `.exe` đã
+  giải nén; phép thử xóa trực tiếp dùng GUI chạy từ mã nguồn. qBittorrent vẫn
+  có thể tải lại video nếu một thư mục được quét còn thuộc torrent đang hoạt động.
 
 ## Cập nhật 0.3
 

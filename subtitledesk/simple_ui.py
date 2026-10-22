@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 
 from .library_ui import LibraryUI, table
 from .batch import Episode, scan_folder, rank, exact_filename
@@ -14,6 +14,7 @@ from .providers import Query, Result
 from .storage import write_json, dialog_directory
 from .languages import LANGUAGES, LABEL_TO_CODE, CODE_TO_LABEL
 from .library_folders import discover_library
+from .recycle import recycle_video, validate_video
 
 
 class SimpleLibraryUI(LibraryUI):
@@ -89,12 +90,16 @@ class SimpleLibraryUI(LibraryUI):
         self.movie_picker.bind('<<ComboboxSelected>>', self.select_library_movie)
         self.batch_table = table(movie_pane, [("use", "Use", 35), ("file", "Video", 240),
             ("title", "Title", 80), ("season", "Season", 40), ("episode", "Episode", 40),
-            ("progress", "Video", 50), ("sub", "Subtitle", 80), ("state", "Status", 120)], height=1)
+            ("progress", "Video", 50), ("sub", "Subtitle", 80), ("state", "Status", 120)], height=1,
+            selectmode="extended")
         self.batch_table.configure(displaycolumns=("file", "state"))
         self.batch_table.column('state',width=110,minwidth=105,stretch=False)
         self.batch_table.column('file',width=150,minwidth=80)
         self.batch_table.bind("<<TreeviewSelect>>", lambda e: self.show_candidates())
         self.batch_table.bind("<Double-1>", lambda e: self.edit())
+        self.batch_table.bind("<Button-3>", self.show_movie_menu)
+        self.movie_menu = tk.Menu(self.batch_table, tearoff=False)
+        self.movie_menu.add_command(label="Move selected videos to Recycle Bin…", command=self.recycle_selected_movies)
         actions = ttk.Frame(movie_pane)
         actions.pack(fill="x")
         ttk.Button(actions, text="Edit…", image=icon("edit"), compound="left", command=self.edit).pack(side="left")
@@ -257,6 +262,64 @@ class SimpleLibraryUI(LibraryUI):
             elif count:
                 view.selection_set(view.get_children()[0])
             self.source_summaries[provider].set(f"{count} results · {row.movie.title} · S{row.movie.season} E{row.movie.episode}" if row else "Select a movie file.")
+
+    def show_movie_menu(self, event):
+        item = self.batch_table.identify_row(event.y)
+        if not item:
+            return
+        if item not in self.batch_table.selection():
+            self.batch_table.selection_set(item)
+        self.batch_table.focus(item)
+        self.movie_menu.tk_popup(event.x_root, event.y_root)
+
+    def recycle_selected_movies(self):
+        selected = sorted({int(item) for item in self.batch_table.selection()})
+        if not selected:
+            self.bstatus.set("Select one or more movie files first. Use Ctrl+click for multiple files.")
+            return
+        if self.batch_busy or self.queued or self.library_refreshing:
+            self.bstatus.set("Finish the current subtitle work before moving videos to the Recycle Bin.")
+            return
+        rows = [self.rows[index] for index in selected]
+        if any(row.torrent_hash for row in rows):
+            messagebox.showwarning("Torrent-managed video",
+                "These videos are still managed by qBittorrent. Remove their torrent first, then refresh the movie library before moving the files.",
+                parent=self.root)
+            return
+        library_root = self.app.settings.get("library_root", "")
+        try:
+            for row in rows:
+                validate_video(row.path, Path(library_root))
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Cannot move videos", str(exc), parent=self.root)
+            return
+        names = "\n".join(f"• {row.path.name}" for row in rows[:5])
+        if len(rows) > 5:
+            names += f"\n• …and {len(rows) - 5} more"
+        if not messagebox.askyesno("Move videos to Recycle Bin",
+            f"Move {len(rows)} selected video(s) to the Windows Recycle Bin?\n\n{names}\n\nSubtitle files will stay in their folders. If qBittorrent still manages a video, it may download that file again.",
+            parent=self.root):
+            return
+        moved, failures = [], []
+        for index, row in zip(selected, rows):
+            try:
+                recycle_video(row.path, Path(library_root))
+                moved.append(index)
+            except (OSError, ValueError) as exc:
+                failures.append(f"{row.path.name}: {exc}")
+        if moved:
+            removed = set(moved)
+            self.batch_table.selection_remove(self.batch_table.selection())
+            self.set_rows([row for index, row in enumerate(self.rows) if index not in removed])
+            if self.rows:
+                survivor = str(min(selected[0], len(self.rows) - 1))
+                self.batch_table.selection_set(survivor)
+                self.batch_table.focus(survivor)
+            self.bstatus.set(f"Moved {len(moved)} video(s) to the Recycle Bin.")
+            self.notice.set("Video files moved to the Recycle Bin. Subtitle files were left in place.")
+        if failures:
+            messagebox.showerror("Some videos were not moved", "\n".join(failures[:8]), parent=self.root)
+            self.bstatus.set(f"Moved {len(moved)} video(s); {len(failures)} could not be moved.")
 
     def scan(self):
         if self.batch_busy or self.queued:
