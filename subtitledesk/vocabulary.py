@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 from .core import MAX_SUBTITLE, SUB_EXTENSIONS, decode_subtitle, parse_movie
+from .recycle import recycle_subtitle, validate_subtitle
 
 ASSETS = Path(__file__).parent / 'assets' / 'vocabulary'
 TOKEN = re.compile(r"(?<!\w)[a-z]+(?:['-][a-z]+)*(?!\w)", re.I)
@@ -219,6 +220,7 @@ class Report:
     read: int = 0
     duplicates: int = 0
     skipped: list = field(default_factory=list)
+    scanned_subtitles: list = field(default_factory=list)
 
 
 def extract_folder(folder, levels=('C1', 'C2'), cancel=None, progress=None, lexicon=None):
@@ -241,6 +243,12 @@ def extract_folder(folder, levels=('C1', 'C2'), cancel=None, progress=None, lexi
             path = Path(directory)/name
             if path.suffix.lower() in SUB_EXTENSIONS and not path.is_symlink():
                 paths.append(path)
+                try:
+                    info = path.stat()
+                    report.scanned_subtitles.append((str(path.relative_to(root)), info.st_dev,
+                        info.st_ino, info.st_size, info.st_mtime_ns))
+                except OSError:
+                    report.skipped.append((str(path.relative_to(root)), 'File metadata could not be read'))
                 if len(paths) > 5000:
                     raise ValueError('More than 5,000 subtitles. Choose a smaller movie folder.')
     report.found = len(paths)
@@ -331,3 +339,21 @@ def export_anki(report, path):
         stream.write(anki_text(report).encode('utf-8'))
         stream.flush()
         os.fsync(stream.fileno())
+
+
+def recycle_scanned_subtitles(report):
+    """Recycle unchanged subtitle files captured by the completed folder scan."""
+    moved, kept = 0, []
+    for relative, device, inode, size, modified in report.scanned_subtitles:
+        path = report.root / relative
+        try:
+            path = validate_subtitle(path, report.root)
+            current = path.stat()
+            if (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns) != (device, inode, size, modified):
+                kept.append((relative, 'File changed since the scan'))
+                continue
+            recycle_subtitle(path, report.root)
+            moved += 1
+        except (OSError, ValueError) as exc:
+            kept.append((relative, str(exc)))
+    return moved, kept

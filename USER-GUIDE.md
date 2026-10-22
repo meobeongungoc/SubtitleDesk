@@ -88,6 +88,16 @@ never overwrite them. A matching filename still does not guarantee perfectly syn
 ZIP season packs must contain an unambiguous subtitle for the episode. For ambiguous archives,
 open **Preview** and select the file manually.
 
+## Vocabulary export and subtitle cleanup
+
+Open **Vocabulary…**, choose a movie or series folder, and click **Scan subtitles**. The scan
+includes subfolders and previews C1/C2 English vocabulary before export. Click **Export Anki
+TXT…** and choose a new `.txt` filename. After the Anki file is saved successfully, SubtitleDesk
+automatically moves the SRT, VTT, ASS and SSA files found during that scan to the Windows Recycle
+Bin, including subtitles in other languages. Videos and unrelated files remain in place. Files
+added or changed after the scan are kept; scan again if you want to include them. If export is
+cancelled or fails, no subtitles are moved. The status line reports how many were moved or kept.
+
 ## Videos still downloading
 
 The app can download a subtitle before its video finishes. It shows **Subtitle downloaded; waiting

@@ -1,11 +1,12 @@
 """Background vocabulary scans with a preview and explicit Anki export."""
+import gc
 from pathlib import Path
 import queue
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-from .vocabulary import Cancelled, extract_folder, export_anki
+from .vocabulary import Cancelled, extract_folder, export_anki, recycle_scanned_subtitles
 from .storage import dialog_directory
 
 
@@ -52,6 +53,8 @@ class VocabularyWindow:
         self.progress.pack(fill='x', pady=10)
         ttk.Label(body, text='English SRT / VTT / ASS / SSA files, including subfolders. Embedded tracks are not read.',
                   style='Hint.TLabel', wraplength=850).pack(anchor='w')
+        ttk.Label(body, text='After a successful export, subtitle files found in this folder during the scan move to the Windows Recycle Bin. Changed files stay in place.',
+                  style='Hint.TLabel', wraplength=850).pack(anchor='w', pady=(4, 0))
         ttk.Label(body, text='List-based CEFR estimates; lower-level homographs and unknown words are excluded. '
                   'Cards contain examples, not dictionary definitions.', style='Hint.TLabel', wraplength=850).pack(anchor='w', pady=(4, 8))
         table_frame = ttk.Frame(body)
@@ -127,6 +130,8 @@ class VocabularyWindow:
             except Exception:
                 # Keep unrelated paths/credentials out of UI errors and logs.
                 self.events.put(('error', 'Could not scan this folder. Check file access and the bundled vocabulary data.'))
+        # Finalize closed Tk widgets on the UI thread before the lexicon allocates heavily.
+        gc.collect()
         threading.Thread(target=worker, daemon=True).start()
 
     def cancel_scan(self):
@@ -183,7 +188,13 @@ class VocabularyWindow:
         except (OSError, ValueError) as exc:
             self.status.set('Could not save export: ' + str(exc))
         else:
-            self.status.set(f'Exported {len(self.report.cards)} cards to {path}. Anki: File → Import; use Basic (Front/Back).')
+            self.status.set('Anki TXT saved. Moving scanned subtitles to the Recycle Bin…')
+            self.window.update_idletasks()
+            moved, kept = recycle_scanned_subtitles(self.report)
+            self.status.set(f'Exported {len(self.report.cards)} cards to {path}. Moved {moved} subtitle(s) to the Recycle Bin; kept {len(kept)} changed or unavailable file(s).')
+            if kept:
+                messagebox.showwarning('Some subtitles were kept',
+                    '\n'.join(f'{name}: {reason}' for name, reason in kept[:8]), parent=self.window)
 
     def details(self):
         if self.report:

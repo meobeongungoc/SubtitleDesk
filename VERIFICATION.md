@@ -1,5 +1,20 @@
 # Kết quả kiểm tra — 22/10/2026
 
+## Cập nhật 0.6.4
+
+- Giữ nguyên lệnh chuyển video vào Thùng rác: phụ đề cạnh phim vẫn ở lại.
+- Sau khi xuất Anki TXT thành công cho thư mục phim, các file phụ đề SRT/VTT/
+  ASS/SSA đã ghi nhận lúc quét được chuyển vào Thùng rác Windows. Phụ đề mới
+  thêm hoặc bị sửa sau lúc quét được giữ lại.
+- Luồng GUI thật đã kiểm tra xuất thành công, file đích có sẵn, phụ đề thay đổi
+  sau lúc quét và giữ lại video. Hai phụ đề mẫu (tiếng Anh và tiếng Việt) được
+  xác nhận trong Thùng rác; TXT Anki đã được tạo đúng định dạng.
+- Toàn bộ 69 kiểm thử Python đạt. Sau nhiều cửa sổ GUI kiểm thử, đã xử lý việc
+  Tkinter thu hồi widget trên luồng quét phụ đề; việc thu hồi nay diễn ra trên
+  luồng giao diện trước khi bắt đầu quét nền.
+- Bản ZIP đã giải nén và khởi động ẩn thành công; phép thử không đổi cửa sổ
+  đang được focus. Gói không chứa thư mục dữ liệu cá nhân.
+
 ## Cập nhật 0.6.3
 
 - Chọn nhiều tập bằng Ctrl/Shift+click, giữ lựa chọn khi danh sách được vẽ lại;

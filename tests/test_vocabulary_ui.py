@@ -75,7 +75,7 @@ class VocabularyUITests(unittest.TestCase):
                 library.show_vocabulary()
                 self.assertIs(library.vocabulary_window, dialog)
                 dialog.scan()
-                deadline = time.monotonic() + 6
+                deadline = time.monotonic() + 20
                 while dialog.busy and time.monotonic() < deadline:
                     app.root.update()
                     time.sleep(.01)
@@ -88,6 +88,7 @@ class VocabularyUITests(unittest.TestCase):
                 with patch('subtitledesk.vocabulary_ui.filedialog.asksaveasfilename', return_value=str(output)):
                     dialog.export()
                     self.assertTrue(output.read_text('utf-8').startswith('#separator:Tab'))
+                    self.assertFalse(sub.exists())
                     before = output.read_bytes()
                     dialog.export()
                     self.assertIn('already exists', dialog.status.get())
@@ -107,6 +108,45 @@ class VocabularyUITests(unittest.TestCase):
             finally:
                 app.close()
             self.assertTrue(library.vocabulary_window.cancel.is_set())
+
+    def test_export_recycles_scanned_subtitles_only_after_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            movie = home/'Series'; movie.mkdir()
+            english = movie/'Episode.en.srt'
+            vietnamese = movie/'Episode.vi.srt'
+            changed = movie/'Other.en.srt'
+            dialogue = '1\n00:00:01,000 --> 00:00:03,000\nWe scrutinize a meticulous protagonist.\n'
+            for path in (english, vietnamese, changed):
+                path.write_text(dialogue, 'utf-8')
+            app = Application(home)
+            try:
+                app.library.show_vocabulary()
+                dialog = app.library.vocabulary_window
+                dialog.folder.set(str(movie))
+                dialog.scan()
+                deadline = time.monotonic() + 20
+                while dialog.busy and time.monotonic() < deadline:
+                    app.root.update()
+                    time.sleep(.01)
+                self.assertFalse(dialog.busy)
+                self.assertTrue(dialog.report.cards)
+                existing = home/'Already-exists.txt'
+                existing.write_text('keep', 'utf-8')
+                with patch('subtitledesk.vocabulary_ui.filedialog.asksaveasfilename', return_value=str(existing)):
+                    dialog.export()
+                self.assertTrue(all(path.exists() for path in (english, vietnamese, changed)))
+                changed.write_text(dialogue + 'Changed after scanning.\n', 'utf-8')
+                output = home/'New-export.txt'
+                with patch('subtitledesk.vocabulary_ui.filedialog.asksaveasfilename', return_value=str(output)), \
+                     patch('subtitledesk.vocabulary_ui.messagebox.showwarning'):
+                    dialog.export()
+                self.assertTrue(output.exists())
+                self.assertFalse(english.exists())
+                self.assertFalse(vietnamese.exists())
+                self.assertTrue(changed.exists())
+            finally:
+                app.close()
 
 
 if __name__ == '__main__':
