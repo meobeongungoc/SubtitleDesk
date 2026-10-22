@@ -1,3 +1,4 @@
+import gc
 import hashlib
 import tempfile
 import time
@@ -40,6 +41,7 @@ class PendingTests(unittest.TestCase):
                 library.client.files.return_value = [{'index':0,'name':video.name,'progress':1,'priority':1}]
                 library.connected = True
                 library.last_refresh = time.monotonic()
+                gc.collect()  # Finalize Tk objects from earlier GUI tests on the main thread.
                 with patch.object(app.engine, 'download', side_effect=AssertionError('Must not download again')):
                     library.download_batch(automatic=True)
                     deadline = time.monotonic()+5

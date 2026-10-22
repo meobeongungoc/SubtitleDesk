@@ -14,7 +14,7 @@ của bạn để tìm/tải thật. Không có kết quả giả trong bản d�
 - Từ gói `SubtitleDesk-Windows-x64.zip`: giải nén toàn bộ và chạy `SubtitleDesk.exe`.
   Giữ `_internal` cạnh file exe. Không cần cài Python.
 - Có thể chạy `scripts\Install.ps1` để sao chép sang một thư mục riêng mới.
-  Mặc định `D:\MOVIE\Tool\SubtitleDesk-Installed`; thư mục đã tồn tại sẽ bị từ chối.
+  Mặc định `%LOCALAPPDATA%\Programs\SubtitleDesk`; thư mục đã tồn tại sẽ bị từ chối.
   Đây là cài dạng portable, không sửa player, PATH hay liên kết file mặc định.
 
 ## Dùng với phụ đề có sẵn

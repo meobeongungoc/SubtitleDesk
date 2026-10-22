@@ -25,7 +25,7 @@ Subtitles are saved with the same base name as the video, so supported players c
 
 ## Get started
 
-SubtitleDesk is a portable Windows application. Download the latest release, extract the package, and run `SubtitleDesk.exe`. Add your SubDL and OpenSubtitles API keys in Settings to search and download subtitles. Browser integration is optional.
+SubtitleDesk is a portable Windows application. Download the [latest Windows release](https://github.com/meobeongungoc/SubtitleDesk/releases/latest), extract the package, and run `SubtitleDesk.exe`. Add your SubDL and OpenSubtitles API keys in Settings to search and download subtitles. Browser integration is optional.
 
 - [Setup and usage guide](USER-GUIDE.md)
 - [Verification notes and known limitations](VERIFICATION.md)

@@ -1,4 +1,4 @@
-param([string]$Destination = 'D:\MOVIE\Tool\SubtitleDesk-Installed')
+param([string]$Destination = (Join-Path $env:LOCALAPPDATA 'Programs\SubtitleDesk'))
 $ErrorActionPreference = 'Stop'
 $SourceRoot = Split-Path -Parent $PSScriptRoot
 $DestinationFull = [IO.Path]::GetFullPath($Destination)
