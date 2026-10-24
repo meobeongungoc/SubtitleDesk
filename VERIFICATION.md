@@ -1,5 +1,14 @@
 # Kết quả kiểm tra — 22/10/2026
 
+## Cập nhật 0.6.6 — 25/10/2026
+
+- Theo yêu cầu mới, phím Delete và lệnh Delete trong menu chuyển ngay video
+  đã chọn vào Thùng rác, không hỏi xác nhận. Phụ đề cạnh phim vẫn được giữ.
+- Kiểm thử widget thật gọi lệnh Delete với hai video mẫu; cả hai đã được
+  chuyển, video không chọn và phụ đề vẫn tồn tại. Hộp askyesno được chặn bằng
+  lỗi trong phép thử để bảo đảm luồng không gọi xác nhận. Ba kiểm thử tương tác đạt.
+- Giữ kiểm tra thư mục hợp lệ, tập do torrent quản lý và chặn lúc đang xử lý.
+
 ## Cập nhật 0.6.5 — 25/10/2026
 
 - Movie files dùng nhấp đúp/Enter để mở phim; menu chuột phải có Open,

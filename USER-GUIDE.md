@@ -1,4 +1,4 @@
-# SubtitleDesk 0.6.5
+# SubtitleDesk 0.6.6
 
 ## Appearance
 
@@ -63,15 +63,14 @@ Right-click a selected video to keep the group selected and open its context men
 **Open**, **Edit episode details…**, and **Delete**. Right-clicking an unselected video selects
 that video. **Shift+F10** or the keyboard Menu key also opens the menu.
 
-**Delete** in the menu or on the keyboard asks for confirmation, then moves selected videos to
-the Windows Recycle Bin. Sidecar subtitles stay in their folders. Active subtitle work and
+**Delete** in the menu or on the keyboard immediately moves selected videos to the Windows
+Recycle Bin without a confirmation dialog. Sidecar subtitles stay in their folders. Active subtitle work and
 torrent-managed videos retain their deletion safeguards. Use **Edit episode details…** to
 correct the title, year, season or episode used for searching; video files are never renamed.
 
 To remove videos from the library, select one or more rows in **Movie files** using Ctrl+click
-or Shift+click, then right-click and choose **Move selected videos to Recycle Bin**.
-Confirm the selected filenames before moving them. Only
-the video files move to the Windows Recycle Bin; matching subtitle files stay in their folders.
+or Shift+click, then right-click and choose **Delete**. Files move immediately without a
+confirmation dialog. Only the video files move to the Windows Recycle Bin; matching subtitle files stay in their folders.
 This action is available for videos on a local fixed drive inside the chosen movie library.
 Finish active subtitle work first. Videos imported directly from an active qBittorrent torrent
 cannot be moved here. If qBittorrent still manages a folder-scanned video, it may download

@@ -341,13 +341,6 @@ class SimpleLibraryUI(LibraryUI):
         except (OSError, ValueError) as exc:
             messagebox.showerror("Cannot move videos", str(exc), parent=self.root)
             return
-        names = "\n".join(f"• {row.path.name}" for row in rows[:5])
-        if len(rows) > 5:
-            names += f"\n• …and {len(rows) - 5} more"
-        if not messagebox.askyesno("Move videos to Recycle Bin",
-            f"Move {len(rows)} selected video(s) to the Windows Recycle Bin?\n\n{names}\n\nSubtitle files will stay in their folders. If qBittorrent still manages a video, it may download that file again.",
-            parent=self.root):
-            return
         moved, failures = [], []
         for index, row in zip(selected, rows):
             try:

@@ -74,15 +74,12 @@ class MovieInteractionTests(unittest.TestCase):
         library.select_all_movies()
         self.assertEqual(len(view.selection()), 3)
 
-    def test_delete_menu_cancels_blocks_busy_and_recycles_only_selected_videos(self):
+    def test_delete_without_confirmation_blocks_busy_and_keeps_subtitles(self):
         library = self.library
         subtitle = self.videos[0].with_suffix(".srt")
         subtitle.write_text("Subtitle must stay", encoding="utf-8")
         library.batch_table.selection_set(("0", "2"))
-        with patch("subtitledesk.simple_ui.messagebox.askyesno", return_value=False):
-            library.movie_menu.invoke("Delete")
-        self.assertTrue(all(path.exists() for path in self.videos))
-        with patch("subtitledesk.simple_ui.messagebox.askyesno", return_value=True) as confirm:
+        with patch("subtitledesk.simple_ui.messagebox.askyesno", side_effect=AssertionError("Delete must not ask for confirmation")) as confirm:
             library.batch_busy = True
             library.recycle_selected_movies()
             confirm.assert_not_called()
@@ -94,7 +91,7 @@ class MovieInteractionTests(unittest.TestCase):
             confirm.assert_not_called()
             library.rows[0].torrent_hash = ""
             library.movie_menu.invoke("Delete")
-            confirm.assert_called_once()
+            confirm.assert_not_called()
         self.assertFalse(self.videos[0].exists())
         self.assertTrue(self.videos[1].exists())
         self.assertFalse(self.videos[2].exists())
