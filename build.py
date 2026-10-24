@@ -53,8 +53,8 @@ def main():
                               if path.parts[-2:] == ("licenses", "LICENSE"))
     trash_license = Path(trash_package.locate_file(trash_license_file))
     shutil.copy2(trash_license, licenses / "Send2Trash-LICENSE.txt")
-    # Publish current build by copying; preserve user data on subsequent rebuilds.
-    shutil.copytree(app, DIST / "SubtitleDesk", dirs_exist_ok=True)
+    DIST.mkdir(exist_ok=True)
+    # Build portable packages only; installation is a separate manual operation.
     shutil.make_archive(str(DIST / "extension-chromium"), "zip", app / "extensions" / "chromium")
     shutil.make_archive(str(DIST / "extension-firefox"), "zip", app / "extensions" / "firefox")
     # Do not include any local settings/credentials in distribution archives.
@@ -66,17 +66,24 @@ def main():
             if path.is_file() and relative.parts[0] != "data":
                 archive.write(path, Path("SubtitleDesk") / relative)
     with zipfile.ZipFile(DIST / "SubtitleDesk-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
-        files = [p for p in ROOT.iterdir() if p.is_file() and p.suffix.lower() in (".py", ".md", ".txt", ".cmd")]
-        for folder in ("subtitledesk", "scripts", "tests", "examples", "extensions"):
+        root_files = ("main.py", "native_host.py", "build.py", "requirements.txt",
+                      "requirements-build.txt", "START.cmd", "README.md", "USER-GUIDE.md",
+                      "HUONG-DAN.md", "ARCHITECTURE.md", "THIRD-PARTY.md", "VERIFICATION.md")
+        files = [ROOT / name for name in root_files if (ROOT / name).is_file()]
+        for folder in ("subtitledesk", "scripts", "examples", "extensions"):
             files.extend(p for p in (ROOT / folder).rglob("*") if p.is_file()
-                         and "__pycache__" not in p.parts and p.suffix.lower() in
+                         and not p.is_symlink() and "__pycache__" not in p.parts
+                         and p.name != "setup_local_qbit.py" and p.suffix.lower() in
                          (".py", ".ps1", ".cjs", ".js", ".json", ".html", ".css", ".md", ".txt", ".csv", ".png", ".ico"))
+        # Local live probes and their reports may contain personal paths/download data.
+        files.extend(p for p in (ROOT / "tests").iterdir() if p.is_file()
+                     and p.suffix in (".py", ".cjs") and not p.is_symlink())
         for path in sorted(files):
             archive.write(path, Path("SubtitleDesk") / path.relative_to(ROOT))
     import hashlib
-    artifacts = list(DIST.glob("*.zip")) + [DIST / "SubtitleDesk" / name
-                                           for name in ("SubtitleDesk.exe", "SubtitleDeskHost.exe")]
-    checksums = {str(p.relative_to(DIST)): hashlib.sha256(p.read_bytes()).hexdigest() for p in artifacts}
+    checksums = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in DIST.glob("*.zip")}
+    for name in ("SubtitleDesk.exe", "SubtitleDeskHost.exe"):
+        checksums["SubtitleDesk/" + name] = hashlib.sha256((app / name).read_bytes()).hexdigest()
     (DIST / "SHA256.json").write_text(json.dumps(checksums, indent=2), "utf-8")
     print("Package:", DIST / "SubtitleDesk-Windows-x64.zip")
 

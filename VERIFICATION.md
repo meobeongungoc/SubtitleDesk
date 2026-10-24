@@ -1,5 +1,18 @@
 # Kết quả kiểm tra — 22/10/2026
 
+## Cập nhật 0.6.7 — 25/10/2026
+
+- Giữ thao tác nhấp đúp/Enter, menu chuột phải, chọn nhiều và Delete không hỏi
+  xác nhận. Giữ phụ đề khi chuyển video vào Thùng rác.
+- Loại bỏ module thử điều khiển cửa sổ native khi mở nền và các hook khởi động
+  liên quan. Đây là bỏ phần thử chưa được xác minh; không phải kết luận đã tìm
+  ra nguyên nhân Edge đóng.
+- Build mặc định chỉ tạo gói, không ghi đè bản cài đang chạy và không dừng hay
+  khởi động ứng dụng. Cài đặt là thao tác riêng sau khi người dùng tự đóng
+  app. Không chạy lại EXE trong lượt hoàn thiện này.
+- Source ZIP dùng danh sách file rõ ràng, không gom tests/live và các báo cáo
+  cá nhân của phép thử tải phim. Kiểm tra gói và nguồn được ghi riêng ở máy.
+
 ## Cập nhật 0.6.6 — 25/10/2026
 
 - Theo yêu cầu mới, phím Delete và lệnh Delete trong menu chuyển ngay video

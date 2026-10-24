@@ -1,4 +1,4 @@
-# SubtitleDesk 0.6.6
+# SubtitleDesk 0.6.7
 
 ## Appearance
 
@@ -204,3 +204,12 @@ to the main view, Settings, Torrents and subtitle preview, and are saved for the
 next launch. The shared cat logo appears in the header and application icon.
 Saved subtitles remain green; exact filename matches use the current accent.
 Windows file pickers and system message boxes follow Windows appearance settings.
+
+## Updating without interrupting an open app
+
+Builds create portable archives and leave `dist/SubtitleDesk` unchanged by default.
+Close SubtitleDesk yourself when ready to update, extract the new archive into a
+separate folder, and keep your existing `data` folder if you want to retain your
+settings and protected credentials on the same Windows account. Do not replace
+files while the application is running. Developer builds use `python build.py` to
+create archives only; the build never installs files into an open app or stops processes.
