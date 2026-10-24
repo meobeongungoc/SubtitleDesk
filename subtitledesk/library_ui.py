@@ -418,6 +418,7 @@ class LibraryUI:
 
     def redraw(self):
         chosen = self.batch_table.selection()
+        focused = self.batch_table.focus()
         self.batch_table.delete(*self.batch_table.get_children())
         for index, row in enumerate(self.rows):
             self.batch_table.insert("", "end", iid=str(index), values=(
@@ -427,6 +428,8 @@ class LibraryUI:
         kept = [item for item in chosen if self.batch_table.exists(item)]
         if kept:
             self.batch_table.selection_set(kept)
+        if focused and self.batch_table.exists(focused):
+            self.batch_table.focus(focused)
 
     def scan(self):
         if self.batch_busy:
@@ -610,12 +613,14 @@ class LibraryUI:
             row = self.resolve_torrent_row(row)
             if row.progress < 1 or not row.path.is_file():
                 raise ValueError("Wait for the video to finish downloading before opening it.")
-            subtitle = row.path.with_suffix(Path(row.saved).suffix) if row.saved else existing_subtitle(row.path)
+            subtitle = Path(row.saved) if row.saved else None
             if subtitle is None or not subtitle.is_file():
-                raise ValueError("No saved subtitle for this episode.")
+                subtitle = existing_subtitle(row.path)
             from .players import launch
-            launch(self.app.player_kind.get(), self.app.player_path.get(), str(row.path), str(subtitle))
-            self.bstatus.set("Opened the episode with subtitles. The player may restart playback.")
+            launch(self.app.player_kind.get(), self.app.player_path.get(), str(row.path),
+                   str(subtitle) if subtitle else None)
+            self.bstatus.set("Opened the episode with subtitles. The player may restart playback."
+                             if subtitle else "Opened the episode without an external subtitle.")
         except Exception as exc:
             self.bstatus.set(str(exc) if isinstance(exc, (ValueError, QbitError)) else error_text(exc))
 

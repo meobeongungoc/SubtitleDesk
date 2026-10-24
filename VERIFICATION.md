@@ -1,5 +1,30 @@
 # Kết quả kiểm tra — 22/10/2026
 
+## Cập nhật 0.6.5 — 25/10/2026
+
+- Movie files dùng nhấp đúp/Enter để mở phim; menu chuột phải có Open,
+  Edit episode details và Delete. Bỏ hàng nút Edit/Open player dưới danh sách.
+- Ctrl/Shift chọn nhiều tập, Ctrl+A chọn tất cả, Delete chuyển video đã chọn
+  vào Thùng rác sau khi xác nhận; phụ đề cạnh phim được giữ lại. Shift+F10
+  và phím Menu mở menu chuột phải. Giữ tập đang focus khi danh sách vẽ lại.
+- Cho mở phim chưa có phụ đề; nếu có phụ đề đã lưu, dùng đúng đường dẫn,
+  bao gồm tên có mã ngôn ngữ. Chặn phim đang tải hoặc không tồn tại.
+- 69 kiểm thử hồi quy hiện có đạt trước khi kiểm tra tích hợp; 3 kiểm thử mới
+  đạt, gồm hủy xóa, chặn lúc bận/torrent quản lý và chuyển hai video mẫu thật
+  vào Thùng rác trong khi giữ phụ đề và video không chọn.
+- Luồng GUI đang chạy: sự kiện nhấp đúp tại đúng hàng đã mở video mẫu trong
+  MPC-BE thật; API /slave xác nhận tên video và track phụ đề ngoài. Nhấp đúp
+  header/vùng trống không mở thêm player. Cửa sổ đang focus không thay đổi.
+- Màu menu đã kiểm tra với cả bốn theme. Không thay đổi shared theme skill.
+- Đường mở nền tùy chọn đã kiểm tra trên instance chạy mã nguồn riêng và
+  không xuất hiện trong mẫu PID foreground. Gói EXE giải nén chạy ẩn đạt;
+  với EXE cài trên máy đang được người dùng xem/tương tác, phép đo focus
+  chưa phân biệt được thao tác chủ động và khởi động. Chưa coi hành vi hiện
+  nền của EXE trong mọi cấu hình là đã xác nhận.
+- Mở phim không có phụ đề đã kiểm tra qua GUI callback/đối số adapter;
+  chưa thử riêng playback không phụ đề trên player thật. Không thử lại mọi
+  tổ hợp phím bằng bàn phím vật lý hoặc trên máy Windows sạch.
+
 ## Cập nhật 0.6.4
 
 - Giữ nguyên lệnh chuyển video vào Thùng rác: phụ đề cạnh phim vẫn ở lại.

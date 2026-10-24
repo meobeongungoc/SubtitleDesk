@@ -1,4 +1,4 @@
-# SubtitleDesk 0.6.3
+# SubtitleDesk 0.6.5
 
 ## Appearance
 
@@ -54,7 +54,19 @@ The window shows three lists at the same time:
 3. **OpenSubtitles** — subtitles for the same video from OpenSubtitles.
 
 Click **Find subtitles** to search the folder. Select a movie on the left to compare both sources.
-Double-click a movie to correct its title, year, season or episode. Video files are never renamed.
+Double-click a movie or press **Enter** to open it in the configured player. Saved subtitles are
+loaded when available; videos without an external subtitle can also be opened. Double-clicking
+empty space or a column heading does not open the previously selected video.
+
+Use **Ctrl+click** or **Shift+click** to select several videos, or **Ctrl+A** to select all.
+Right-click a selected video to keep the group selected and open its context menu:
+**Open**, **Edit episode details…**, and **Delete**. Right-clicking an unselected video selects
+that video. **Shift+F10** or the keyboard Menu key also opens the menu.
+
+**Delete** in the menu or on the keyboard asks for confirmation, then moves selected videos to
+the Windows Recycle Bin. Sidecar subtitles stay in their folders. Active subtitle work and
+torrent-managed videos retain their deletion safeguards. Use **Edit episode details…** to
+correct the title, year, season or episode used for searching; video files are never renamed.
 
 To remove videos from the library, select one or more rows in **Movie files** using Ctrl+click
 or Shift+click, then right-click and choose **Move selected videos to Recycle Bin**.

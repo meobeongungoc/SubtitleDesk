@@ -42,6 +42,8 @@ class Application:
         except ImportError:
             self.root = tk.Tk()
             self.dnd_type = None
+        from .window_start import prepare_background_start
+        finish_background_start = prepare_background_start(self.root)
         self.root.title(f"SubtitleDesk {__version__}")
         self.root.minsize(1000, 600)
         self.settings_ok = True
@@ -85,6 +87,7 @@ class Application:
         self.library = SimpleLibraryUI(self)
         self.theme_manager.apply(self.theme_key)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
+        self.root.after(1000, finish_background_start)
         self.root.after(120, self.poll)
 
     def build_ui(self):

@@ -96,14 +96,21 @@ class SimpleLibraryUI(LibraryUI):
         self.batch_table.column('state',width=110,minwidth=105,stretch=False)
         self.batch_table.column('file',width=150,minwidth=80)
         self.batch_table.bind("<<TreeviewSelect>>", lambda e: self.show_candidates())
-        self.batch_table.bind("<Double-1>", lambda e: self.edit())
+        self.batch_table.bind("<Double-1>", self.open_movie)
+        self.batch_table.bind("<Return>", self.open_movie)
+        self.batch_table.bind("<Delete>", lambda e: (self.recycle_selected_movies(), "break")[1])
+        self.batch_table.bind("<Control-a>", self.select_all_movies)
+        self.batch_table.bind("<Control-A>", self.select_all_movies)
         self.batch_table.bind("<Button-3>", self.show_movie_menu)
+        self.batch_table.bind("<Shift-F10>", lambda e: self.show_movie_menu(e, keyboard=True))
+        self.batch_table.bind("<KeyPress-Menu>", lambda e: self.show_movie_menu(e, keyboard=True))
         self.movie_menu = tk.Menu(self.batch_table, tearoff=False)
-        self.movie_menu.add_command(label="Move selected videos to Recycle Bin…", command=self.recycle_selected_movies)
-        actions = ttk.Frame(movie_pane)
-        actions.pack(fill="x")
-        ttk.Button(actions, text="Edit…", image=icon("edit"), compound="left", command=self.edit).pack(side="left")
-        ttk.Button(actions, text="Open player", image=icon("play"), compound="left", command=self.open_episode).pack(side="left", padx=5)
+        self.movie_menu.add_command(label="Open", accelerator="Enter", command=self.open_episode)
+        self.movie_menu.add_command(label="Edit episode details…", command=self.edit)
+        self.movie_menu.add_separator()
+        self.movie_menu.add_command(label="Delete", accelerator="Del", command=self.recycle_selected_movies)
+        ttk.Label(movie_pane, text="Double-click to open. Right-click for actions.",
+                  style="Hint.TLabel", wraplength=280).pack(anchor="w", pady=(7, 0))
         self.source_views = {}
         self.source_summaries = {}
         for provider, heading in (("subdl", "SubDL"), ("opensubtitles", "OpenSubtitles")):
@@ -153,6 +160,7 @@ class SimpleLibraryUI(LibraryUI):
         super().set_rows(rows)
         if rows:
             self.batch_table.selection_set("0")
+            self.batch_table.focus("0")
             self.folder_label.set(f"{len(rows)} movie files · {rows[0].path.parent}")
         else:
             self.folder_label.set("No video files found.")
@@ -170,7 +178,8 @@ class SimpleLibraryUI(LibraryUI):
             if row.saved and self.reported_saves.get(index) != row.saved:
                 self.reported_saves[index] = row.saved
                 prefix = "Auto-saved" if index in self.automatic_rows else "Saved"
-                self.notice.set(f"{prefix} from {row.selected.provider}: {row.saved}")
+                self.notice.set(f"{prefix} from {row.selected.provider}: {row.saved}"
+                                if row.selected else f"{prefix} subtitle: {row.saved}")
             if row.selected and index in self.queued and index not in self.reported_prepared:
                 self.reported_prepared.add(index)
                 prefix = "Auto-downloaded" if index in self.automatic_rows else "Downloaded"
@@ -263,14 +272,53 @@ class SimpleLibraryUI(LibraryUI):
                 view.selection_set(view.get_children()[0])
             self.source_summaries[provider].set(f"{count} results · {row.movie.title} · S{row.movie.season} E{row.movie.episode}" if row else "Select a movie file.")
 
-    def show_movie_menu(self, event):
-        item = self.batch_table.identify_row(event.y)
-        if not item:
-            return
+    def open_movie(self, event=None):
+        # Only a double-click on a real row opens a movie, never the header/empty space.
+        if event is not None and event.type == tk.EventType.ButtonPress:
+            item = self.batch_table.identify_row(event.y)
+            if not item or self.batch_table.identify_region(event.x, event.y) not in ("cell", "tree"):
+                return
+            self.batch_table.selection_set(item)
+            self.batch_table.focus(item)
+        self.open_episode()
+        return "break"
+
+    def select_all_movies(self, event=None):
+        items = self.batch_table.get_children()
+        self.batch_table.selection_set(items)
+        if items and not self.batch_table.focus():
+            self.batch_table.focus(items[0])
+        return "break"
+
+    def show_movie_menu(self, event, keyboard=False):
+        if keyboard:
+            index = self.selected_row()
+            if index is None:
+                return "break"
+            item = str(index)
+            self.batch_table.see(item)
+            x, y, width, height = self.batch_table.bbox(item)
+            screen_x = self.batch_table.winfo_rootx() + x + min(width, 30)
+            screen_y = self.batch_table.winfo_rooty() + y + height
+        else:
+            item = self.batch_table.identify_row(event.y)
+            if not item:
+                return "break"
+            screen_x, screen_y = event.x_root, event.y_root
         if item not in self.batch_table.selection():
             self.batch_table.selection_set(item)
         self.batch_table.focus(item)
-        self.movie_menu.tk_popup(event.x_root, event.y_root)
+        self.batch_table.focus_set()
+        state = "disabled" if self.batch_busy else "normal"
+        self.movie_menu.entryconfigure("Open", state=state)
+        self.movie_menu.entryconfigure("Edit episode details…", state=state)
+        deleting = self.batch_busy or self.queued or self.library_refreshing
+        self.movie_menu.entryconfigure("Delete", state="disabled" if deleting else "normal")
+        try:
+            self.movie_menu.tk_popup(screen_x, screen_y)
+        finally:
+            self.movie_menu.grab_release()
+        return "break"
 
     def recycle_selected_movies(self):
         selected = sorted({int(item) for item in self.batch_table.selection()})
