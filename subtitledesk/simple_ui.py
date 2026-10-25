@@ -15,6 +15,7 @@ from .storage import write_json, dialog_directory
 from .languages import LANGUAGES, LABEL_TO_CODE, CODE_TO_LABEL
 from .library_folders import discover_library
 from .recycle import recycle_video, validate_video
+from .row_actions import MovieRowActions
 
 
 class SimpleLibraryUI(LibraryUI):
@@ -90,11 +91,13 @@ class SimpleLibraryUI(LibraryUI):
         self.movie_picker.bind('<<ComboboxSelected>>', self.select_library_movie)
         self.batch_table = table(movie_pane, [("use", "Use", 35), ("file", "Video", 240),
             ("title", "Title", 80), ("season", "Season", 40), ("episode", "Episode", 40),
-            ("progress", "Video", 50), ("sub", "Subtitle", 80), ("state", "Status", 120)], height=1,
+            ("progress", "Video", 50), ("sub", "Subtitle", 80), ("state", "Status", 120),
+            ("play", "Play", 56), ("delete", "Delete", 64)], height=1,
             selectmode="extended")
-        self.batch_table.configure(displaycolumns=("file", "state"))
-        self.batch_table.column('state',width=110,minwidth=105,stretch=False)
+        self.batch_table.configure(displaycolumns=("file", "state", "play", "delete"))
+        self.batch_table.column('state',width=80,minwidth=65,stretch=False)
         self.batch_table.column('file',width=150,minwidth=80)
+        self.movie_actions = MovieRowActions(self.batch_table, self.movie_row_action)
         self.batch_table.bind("<<TreeviewSelect>>", lambda e: self.show_candidates())
         self.batch_table.bind("<Double-1>", self.open_movie)
         self.batch_table.bind("<Return>", self.open_movie)
@@ -109,7 +112,7 @@ class SimpleLibraryUI(LibraryUI):
         self.movie_menu.add_command(label="Edit episode details…", command=self.edit)
         self.movie_menu.add_separator()
         self.movie_menu.add_command(label="Delete", accelerator="Del", command=self.recycle_selected_movies)
-        ttk.Label(movie_pane, text="Double-click to open. Right-click for actions.",
+        ttk.Label(movie_pane, text="Play opens this episode. Delete moves its video to the Recycle Bin immediately.",
                   style="Hint.TLabel", wraplength=280).pack(anchor="w", pady=(7, 0))
         self.source_views = {}
         self.source_summaries = {}
@@ -186,6 +189,7 @@ class SimpleLibraryUI(LibraryUI):
                 self.notice.set(f"{prefix} from {row.selected.provider}; waiting for video: {row.path.name}")
         self.show_candidates()
         self.persist_pending()
+        self.movie_actions.schedule()
 
     def persist_pending(self):
         records = []
@@ -271,6 +275,17 @@ class SimpleLibraryUI(LibraryUI):
             elif count:
                 view.selection_set(view.get_children()[0])
             self.source_summaries[provider].set(f"{count} results · {row.movie.title} · S{row.movie.season} E{row.movie.episode}" if row else "Select a movie file.")
+
+    def movie_row_action(self, item, action):
+        # A row button always targets its own episode, even with a multi-selection.
+        if not self.batch_table.exists(item) or int(item) >= len(self.rows):
+            return
+        self.batch_table.selection_set(item)
+        self.batch_table.focus(item)
+        if action == "play":
+            self.open_episode()
+        elif action == "delete":
+            self.recycle_selected_movies()
 
     def open_movie(self, event=None):
         # Only a double-click on a real row opens a movie, never the header/empty space.

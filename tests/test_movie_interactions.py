@@ -31,6 +31,75 @@ class MovieInteractionTests(unittest.TestCase):
         self.app.close()
         self.directory.cleanup()
 
+    def show_without_focus(self):
+        import ctypes
+        root = self.app.root
+        root.geometry("1200x700+20000+20000")
+        root.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+        ctypes.windll.user32.ShowWindow(hwnd, 4)  # SW_SHOWNOACTIVATE
+        root.update()
+
+    def test_row_buttons_target_only_their_episode(self):
+        self.show_without_focus()
+        library = self.library
+        view = library.batch_table
+        self.assertIn("1", library.movie_actions.buttons)
+        play, delete = library.movie_actions.buttons["1"]
+        self.assertTrue(play.winfo_ismapped())
+        self.assertTrue(delete.winfo_ismapped())
+        view.selection_set(("0", "2"))
+        with patch("subtitledesk.players.launch") as launch:
+            play.invoke()
+            self.assertEqual(launch.call_args.args[2], str(self.videos[1]))
+        subtitle = self.videos[1].with_suffix(".srt")
+        subtitle.write_text("Keep this subtitle", encoding="utf-8")
+        view.selection_set(("0", "2"))
+        with patch("subtitledesk.simple_ui.messagebox.askyesno",
+                   side_effect=AssertionError("No confirmation allowed")):
+            # Exercise the real ttk mouse bindings, not just the Python callback.
+            delete.event_generate("<Enter>")
+            delete.event_generate("<ButtonPress-1>", x=5, y=5)
+            delete.event_generate("<ButtonRelease-1>", x=5, y=5)
+            self.app.root.update()
+        self.assertFalse(self.videos[1].exists())
+        self.assertTrue(self.videos[0].exists())
+        self.assertTrue(self.videos[2].exists())
+        self.assertTrue(subtitle.exists())
+        self.assertEqual([r.path for r in library.rows], [self.videos[0], self.videos[2]])
+
+    def test_row_buttons_follow_scroll_sort_resize_and_themes(self):
+        from subtitledesk.library_ui import sort_table
+        for i in range(4, 65):
+            (self.home / f"Show.S01E{i:02d}.mkv").write_bytes(b"Disposable UI fixture")
+        self.library.set_rows(scan_folder(self.home))
+        self.show_without_focus()
+        view = self.library.batch_table
+        for theme in ("blue", "warm", "green", "purple"):
+            self.app.theme_manager.apply(theme)
+            self.app.root.geometry("1000x600+20000+20000")
+            self.app.root.update()
+            view.yview_moveto(1)
+            self.app.root.update()
+            actions = self.library.movie_actions
+            self.assertIn("63", actions.buttons)
+            self.assertNotIn("0", actions.buttons)
+            self.assertLess(len(actions.buttons), 64)
+            for item, buttons in actions.buttons.items():
+                for column, button in zip(("play", "delete"), buttons):
+                    x, y, width, height = view.bbox(item, column)
+                    self.assertTrue(button.winfo_ismapped())
+                    self.assertEqual(button.winfo_y(), y + 1)
+                    self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
+        sort_table(view, "file")
+        view.yview_moveto(0)
+        self.app.root.update()
+        first = view.get_children()[0]
+        self.assertIn(first, self.library.movie_actions.buttons)
+        with patch("subtitledesk.players.launch") as launch:
+            self.library.movie_actions.buttons[first][0].invoke()
+            self.assertEqual(launch.call_args.args[2], str(self.library.rows[int(first)].path))
+
     def test_open_without_subtitle_and_exact_saved_language_path(self):
         library = self.library
         library.batch_table.selection_set("1")
