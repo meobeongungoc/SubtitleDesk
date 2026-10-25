@@ -11,49 +11,7 @@ from test_core import SRT, archive
 
 
 class GuiTests(unittest.TestCase):
-    def test_torrent_refresh_waits_then_requests_shutdown(self):
-        with tempfile.TemporaryDirectory() as directory:
-            app = Application(Path(directory))
-            app.root.withdraw()
-            try:
-                library = app.library
-                torrent = {"hash": "fixture", "name": "Example", "progress": .5,
-                           "state": "downloading", "size": 100, "eta": 10}
-                library.client = Mock()
-                library.client.torrents.return_value = [torrent]
-                library.connected = True
-                library.run = lambda job, done: done(job())
-                with patch.object(library, "shutdown_qbit") as shutdown:
-                    library.refresh()
-                    torrent["progress"], torrent["state"] = 1.0, "uploading"
-                    library.refresh()
-                    shutdown.assert_not_called()
-                    library.refresh()
-                    shutdown.assert_called_once_with()
-            finally:
-                app.close()
 
-    def test_qbittorrent_starts_only_when_torrents_opened(self):
-        from subtitledesk.library_ui import LibraryUI
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "data").mkdir()
-            (root / "data" / "settings.json").write_text('{"qbit_auto": true}', encoding="utf-8")
-            with patch.object(LibraryUI, "connect") as connect:
-                app = Application(root)
-                app.root.withdraw()
-                try:
-                    app.root.update()
-                    time.sleep(.8)
-                    app.root.update()
-                    connect.assert_not_called()
-                    with patch("subtitledesk.simple_ui.filedialog.askdirectory", return_value=str(root)):
-                        app.library.scan()
-                    connect.assert_not_called()
-                    app.show_torrents()
-                    connect.assert_called_once_with()
-                finally:
-                    app.close()
 
     def test_batch_search_save_pack_once_and_open(self):
         from subtitledesk.providers import Registry, Capabilities, Page, Result, SearchEngine
@@ -104,32 +62,6 @@ class GuiTests(unittest.TestCase):
                 library.download_batch()
                 wait()
                 self.assertEqual(source.downloads, 1)
-                from subtitledesk.batch import Episode, identify
-                from subtitledesk.qbittorrent import QbitError
-                path = root / "Show.S01E03.mkv"
-                path.write_bytes(b"fixture-video")
-                result = source.search(None, None, None).results[0]
-                library.set_rows([Episode(path, identify(path), selected=result,
-                                          torrent_hash="fixture", file_index=0, progress=.5)])
-                library.client = Mock()
-                library.client.torrents.return_value = [{"hash": "fixture", "save_path": str(root)}]
-                file = {"index": 0, "name": path.name, "progress": .5, "priority": 1}
-                library.client.files.side_effect = lambda _: [file.copy()]
-                library.connected = True
-                library.last_refresh = time.monotonic()
-                library.wait_download.set(False)
-                library.download_batch()
-                wait()
-                self.assertEqual(library.queued, {0})
-                self.assertFalse(path.with_suffix(".srt").exists())
-                file["progress"] = 1
-                library.download_batch(automatic=True)
-                wait()
-                self.assertEqual(library.queued, set())
-                self.assertEqual(path.with_suffix(".srt").read_bytes(), SRT)
-                file["name"] = "Renamed.S01E04.mkv"
-                with self.assertRaises(QbitError):
-                    library.resolve_torrent_row(library.rows[0])
             finally:
                 app.close()
 

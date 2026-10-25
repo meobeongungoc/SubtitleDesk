@@ -1,12 +1,21 @@
-# SubtitleDesk 0.3.0
+# SubtitleDesk 0.7.0
 
-Giao diện mới có ba danh sách song song: Movie files, SubDL, OpenSubtitles.
-Xem **USER-GUIDE.md** để dùng bản hiện tại. Hướng dẫn bên dưới mô tả bố cục 0.2.
-Hàng chờ phụ đề hiện đã lưu qua lần đóng/mở app; cần mở app để tiếp tục áp dụng.
+Ứng dụng duyệt thư mục phim trên Windows và tìm/tải phụ đề từ SubDL, OpenSubtitles.
+Giao diện gồm Movie files, SubDL và OpenSubtitles. Bấm **Library folder…** để chọn
+thư viện, dùng danh sách cạnh **Movie files** để chuyển phim/bộ phim, bấm **Refresh**
+để cập nhật video mới. Thư mục mùa bên trong được quét cùng nhau.
 
-Ứng dụng Windows riêng để tìm và quản lý phụ đề cho phim lẻ, cả thư mục phim bộ,
-và phim đang tải trong qBittorrent. Có adapter SubDL và OpenSubtitles; cần API key
-của bạn để tìm/tải thật. Không có kết quả giả trong bản dùng thật.
+Mỗi dòng tập có **Play** và **Delete**. Play mở đúng tập; Delete chuyển riêng video
+đó vào Recycle Bin ngay, không xác nhận và giữ nguyên phụ đề. Menu chuột phải/phím
+Delete có thể xóa nhiều video đã chọn. Hoàn tất hoặc hủy tìm/tải phụ đề trước khi đổi thư mục hay xóa.
+
+Bấm **Find subtitles** để tìm cả thư mục. Bản phụ đề trùng chính xác tên video được
+tải tự động; các bản khác chọn ở danh sách nguồn rồi bấm **Download & apply**.
+Video đã có phụ đề được bỏ qua. Cần API key của bạn trong Settings để tìm/tải thật.
+Cache tải chờ từ bản cũ được giữ nguyên, không tự tiếp tục áp dụng.
+
+Xem **USER-GUIDE.md** để dùng bản hiện tại. Các phần phía dưới mô tả thêm công cụ nhập
+phụ đề, nguồn và kết nối trình duyệt.
 
 ## Chạy ngay
 
@@ -72,38 +81,6 @@ Không bảo đảm đồng bộ timing chỉ dựa vào tên và điểm khớp
 dùng tab **Phim & phụ đề** để nhập ZIP, xem trước và chọn file chính xác.
 Gói cả mùa được tái sử dụng từ bộ nhớ cho các tập liên tiếp dùng cùng kết quả.
 Hàng đợi ghép tập không lưu qua lần đóng ứng dụng.
-
-## qBittorrent
-
-Trên máy đã thiết lập: WebUI tại `http://127.0.0.1:18080`, tài khoản `subtitledesk`,
-mật khẩu ngẫu nhiên nằm trong kho DPAPI của tool. Chỉ nghe trên loopback, vẫn yêu cầu
-đăng nhập. Không mở cổng router. Bản sao INI trước thay đổi nằm trong
-`data/backups` **của thư mục mã nguồn**; biên nhận tại `data/qbit-setup-receipt.json`.
-
-- **Kết nối / mở qBittorrent** mở ứng dụng nếu cần rồi kết nối qua API.
-- **Tự kết nối…** cho phép tool kết nối/mở qBit khi khởi động tool.
-  Không đăng ký khởi động cùng Windows.
-- **Đang tải / đã tải** cập nhật mỗi 5 giây, có tiến độ, tốc độ, dung lượng,
-  ETA, seeds và peers dạng **đang kết nối / tổng qBittorrent biết**.
-  Tổng không phải phép đếm chính xác toàn mạng. `?` nghĩa là chưa biết.
-- **Peer chi tiết** lấy danh sách kết nối hiện tại một lần khi bấm.
-- **Tìm torrent** dùng các plugin đang cài trong qBit. Seeds/leechers ở đây do website/plugin
-  cung cấp, có thể cũ hoặc thiếu; không phải số peer tool đã trực tiếp kết nối.
-- Chọn kết quả rồi **Tải torrent đã chọn…**, hoặc thêm magnet/URL/file `.torrent`.
-  Chọn thư mục và xác nhận trước khi gửi. Tool không tự chọn torrent để tải.
-- Chọn torrent trong **Đang tải / đã tải** → **Phụ đề cho bộ phim đã chọn**.
-  Cần có metadata để đọc danh sách file; file bị bỏ chọn trong qBit không được nhập.
-- Tìm, ghép và bấm tải phụ đề. Nếu tập chưa tải xong, tool giữ lựa chọn chờ và kiểm tra
-  mỗi 10 giây khi tool đang mở. Đóng tool sẽ mất hàng chờ này; mở lại cần chọn lại.
-- Trước khi lưu, tool đọc lại đường dẫn/progress. Torrent bị gỡ, file đổi tên hoặc bỏ chọn
-  sẽ dừng lưu để bạn kiểm tra. Di chuyển thư mục qua qBit được cập nhật theo API.
-- Tool không có lệnh xóa torrent, xóa dữ liệu, cài/sửa search plugin hoặc tắt qBit.
-
-Gói portable trên máy khác không mang mật khẩu/cấu hình này. Bật WebUI trong qBittorrent,
-giữ địa chỉ loopback và nhập URL/tài khoản/mật khẩu tương ứng trong tool.
-Để gỡ kết nối: bỏ tự kết nối trong tool; nếu không ứng dụng nào khác dùng WebUI,
-bạn có thể tắt WebUI trong cài đặt qBittorrent. Không khôi phục nguyên INI cũ sau khi đã
-đổi các thiết lập khác vì có thể mất thay đổi mới.
 
 ## Kết nối Edge / Chrome (tùy chọn)
 

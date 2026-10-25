@@ -22,7 +22,6 @@ class ThemeTests(unittest.TestCase):
                     self.assertEqual(app.root.cget('background'), palette[1])
                     self.assertEqual(app.preview.cget('background'), palette[2])
                     self.assertEqual(app.tools_window.cget('background'), palette[1])
-                    self.assertEqual(app.torrent_window.cget('background'), palette[1])
                     self.assertEqual(json.loads((home/'data/settings.json').read_text())['theme'], key)
                     view = app.library.source_views['subdl']
                     self.assertEqual(view.tag_configure('exact')['background'], palette[4])

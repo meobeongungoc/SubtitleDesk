@@ -38,7 +38,7 @@ def main():
     app = frozen / "SubtitleDesk"
     shutil.copy2(frozen / "SubtitleDeskHost.exe", app / "SubtitleDeskHost.exe")
     shutil.copytree(ROOT / "scripts", app / "scripts", dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("setup_local_qbit.py", "__pycache__"))
+                    ignore=shutil.ignore_patterns("__pycache__"))
     build_extensions(app / "extensions")
     for name in ("USER-GUIDE.md", "HUONG-DAN.md", "ARCHITECTURE.md", "THIRD-PARTY.md"):
         shutil.copy2(ROOT / name, app / name)
@@ -73,7 +73,7 @@ def main():
         for folder in ("subtitledesk", "scripts", "examples", "extensions"):
             files.extend(p for p in (ROOT / folder).rglob("*") if p.is_file()
                          and not p.is_symlink() and "__pycache__" not in p.parts
-                         and p.name != "setup_local_qbit.py" and p.suffix.lower() in
+                         and p.suffix.lower() in
                          (".py", ".ps1", ".cjs", ".js", ".json", ".html", ".css", ".md", ".txt", ".csv", ".png", ".ico"))
         # Local live probes and their reports may contain personal paths/download data.
         files.extend(p for p in (ROOT / "tests").iterdir() if p.is_file()

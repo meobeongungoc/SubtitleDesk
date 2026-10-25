@@ -1,13 +1,13 @@
 <div align="center">
   <img src="subtitledesk/assets/logo.png" alt="SubtitleDesk cat logo" width="112" />
   <h1>SubtitleDesk</h1>
-  <p><strong>Find subtitles for a whole folder of movies and TV episodes.</strong></p>
+  <p><strong>Browse your movie folders and download subtitles for movies and TV episodes.</strong></p>
   <p>Search two subtitle services, choose a match, and open your video with subtitles in MPC-BE.</p>
 </div>
 
 ---
 
-SubtitleDesk is a Windows app that brings your video files and subtitle search together. It scans a movie or series folder, shows results from **SubDL** and **OpenSubtitles** side by side, and helps you get subtitles next to the videos they belong to.
+SubtitleDesk is a Windows movie folder browser and subtitle downloader. It scans a movie or series folder, shows results from **SubDL** and **OpenSubtitles** side by side, and helps you get subtitles next to the videos they belong to.
 
 ## Find and apply subtitles
 
@@ -15,10 +15,10 @@ Choose a movie folder and search its episodes together. SubtitleDesk highlights 
 
 Subtitles are saved with the same base name as the video, so supported players can find them easily. Existing subtitle files are kept safe from being overwritten.
 
-## More than subtitle search
+## Browse and manage your library
 
-- **qBittorrent:** view downloads, search installed torrent plugins, and bring episode files into SubtitleDesk, even while a download is in progress. qBittorrent starts when you open Torrents and exits after observed downloads finish while SubtitleDesk is running.
 - **Anki vocabulary export:** collect advanced English words from a folder of subtitles and export them for Anki. After a successful export, the scanned subtitle files move to the Windows Recycle Bin.
+- **Movie folders:** select a library root, switch between movies/series, and refresh to discover new videos.
 - **MPC-BE:** open a completed video with its selected subtitle.
 - **Browser connection:** optionally send a page title, URL, or text you select from Edge, Chrome, or Firefox to the app.
 - **Personalize the app:** choose one of four themes and a font installed on Windows.

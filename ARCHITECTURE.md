@@ -11,12 +11,12 @@
 - `gui.py`: Tk, queue từ worker để chỉ cập nhật GUI trên main thread; không chặn cửa sổ khi tìm/tải.
 - `sources.py`: SubDL v1 và OpenSubtitles REST API, chuẩn hóa kết quả/tập, bảo vệ credentials,
   từ chối redirect API khác host, allowlist miền tải. Không có khóa được nhúng.
-- `qbittorrent.py`: WebUI API cục bộ, SID cookie, login, danh sách torrent/file/peer,
-  search jobs, thêm URL/file qua lựa chọn của người dùng. Không có endpoint xóa dữ liệu.
 - `batch.py`: quét video, nhận diện tập, chấm khớp nghiêm ngặt, chọn phụ đề trong gói mùa,
   lưu sidecar đúng tên bằng exclusive-create.
-- `library_ui.py`: bảng qBit và phim bộ; refresh 5s, hàng chờ phụ đề kiểm tra 10s khi app mở.
-  Các hàng chờ chỉ ở bộ nhớ. Không thêm video mẫu/kết quả giả vào bản dùng thật.
+- `library_ui.py`: các thao tác tập phim cục bộ, tìm/tải phụ đề, cache gói mùa trong bộ nhớ,
+  nhận kết quả qua queue để chỉ cập nhật giao diện trên main thread.
+- `simple_ui.py`: duyệt thư viện thư mục phim và hai nguồn phụ đề song song; Play/Delete mỗi dòng.
+  Refresh quét lại thư mục đang chọn. Không có hàng chờ chờ video tải xong.
 - `storage.py`: JSON cấu hình; Windows DPAPI cho thông tin xác thực.
 - `players.py`: adapter MPC-BE, mở file và phụ đề bằng tham số CLI. Chưa có live IPC.
 - `bridge.py`: framing Native Messaging, JSON nhỏ, xác thực trường, inbox của ứng dụng.
@@ -67,7 +67,6 @@ riêng và chỉ bật khi player chạy với endpoint phù hợp. Không giả
 - https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/native-messaging
 - https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging
 - https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_messaging
-- https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-%28qBittorrent-5.0%29
 - https://subdl.com/api-doc
 - https://blog.opensubtitles.com/opensubtitles/how-to-build-a-movie-subtitle-finder-cli-with-python-and-the-opensubtitles-api
 

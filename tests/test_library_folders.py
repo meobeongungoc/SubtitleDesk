@@ -19,7 +19,7 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual(set(catalog), {'Show','Movie','Movies in library root'})
             self.assertEqual(catalog['Show'], (root/'Show').resolve())
 
-    def test_switch_preserves_pending_queue(self):
+    def test_switch_blocked_during_subtitle_work(self):
         with tempfile.TemporaryDirectory() as directory:
             app = Application(Path(directory))
             app.root.withdraw()
@@ -27,10 +27,10 @@ class LibraryTests(unittest.TestCase):
                 lib=app.library
                 app.settings['library_selection']='Current show'
                 lib.movie_choice.set('Another show')
-                lib.queued.add(0)
+                lib.batch_busy = True
                 lib.select_library_movie()
                 self.assertEqual(lib.movie_choice.get(),'Current show')
-                self.assertEqual(lib.queued,{0})
-                lib.queued.clear()
+                self.assertTrue(lib.batch_busy)
+                lib.batch_busy = False
             finally:
                 app.close()

@@ -1,17 +1,15 @@
-"""Three simultaneous lists, backed by the shared folder/qBittorrent workflow."""
-from dataclasses import replace, asdict
-import hashlib
-import json
+"""Browse local movie folders and compare two subtitle sources side by side."""
+from dataclasses import replace
 from pathlib import Path
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from .library_ui import LibraryUI, table
-from .batch import Episode, scan_folder, rank, exact_filename
-from .core import Movie, match_score, decode_subtitle, save_subtitle, MAX_SUBTITLE, SUB_EXTENSIONS
-from .providers import Query, Result
-from .storage import write_json, dialog_directory
+from .batch import scan_folder, rank, exact_filename
+from .core import match_score
+from .providers import Query
+from .storage import dialog_directory
 from .languages import LANGUAGES, LABEL_TO_CODE, CODE_TO_LABEL
 from .library_folders import discover_library
 from .recycle import recycle_video, validate_video
@@ -20,9 +18,7 @@ from .row_actions import MovieRowActions
 
 class SimpleLibraryUI(LibraryUI):
     def __init__(self, app):
-        self.pending_snapshot = None
         super().__init__(app)
-        self.root.after(400, self.restore_pending)
         self.library_folders = {}
         self.library_refreshing = False
         self.root.after(850, self.refresh_library)
@@ -37,14 +33,11 @@ class SimpleLibraryUI(LibraryUI):
 
     def build_batch(self):
         self.automatic_rows = set()
-        self.auto_pending = set()
         self.reported_saves = {}
-        self.reported_prepared = set()
         self.recursive = tk.BooleanVar(value=True)
         self.title = tk.StringVar()
         self.season = tk.StringVar()
         self.language = self.app.language
-        self.wait_download = tk.BooleanVar(value=True)
         icon = self.app.theme_manager.icon
         bar = ttk.Frame(self.btab)
         bar.pack(fill="x", pady=(0, 9))
@@ -64,7 +57,6 @@ class SimpleLibraryUI(LibraryUI):
         ttk.Button(primary, text="Cancel", image=icon("close"), compound="left", command=self.cancel_batch_work).pack(side="left")
         ttk.Button(utility, text="Settings", image=icon("settings"), compound="left", command=lambda: self.app.show_tools(self.app.sources)).pack(side="right")
         ttk.Button(utility, text="Appearance", image=icon("appearance"), compound="left", command=self.app.show_appearance).pack(side="right", padx=5)
-        ttk.Button(utility, text="Torrents", image=icon("torrent"), compound="left", command=self.app.show_torrents).pack(side="right")
         ttk.Button(utility, text="Preview", image=icon("play"), compound="left", command=lambda: self.app.show_tools(self.app.workflow)).pack(side="right", padx=5)
         ttk.Button(utility, text="Vocabulary…", command=self.show_vocabulary).pack(side="right", padx=5)
         info = ttk.Frame(self.btab)
@@ -75,7 +67,7 @@ class SimpleLibraryUI(LibraryUI):
         language_box.pack(side="right")
         language_box.bind("<<ComboboxSelected>>", lambda e: self.language.set(LABEL_TO_CODE[self.language_label.get()]))
         ttk.Label(info, text="Languages", style="Hint.TLabel").pack(side="right", padx=8)
-        self.folder_label = tk.StringVar(value="Choose a folder, or import a torrent from Torrents.")
+        self.folder_label = tk.StringVar(value="Choose a movie library folder to browse your videos.")
         ttk.Label(info, textvariable=self.folder_label, style="Hint.TLabel").pack(side="left", fill="x", expand=True)
         self.panes = ttk.Panedwindow(self.btab, orient="horizontal")
         self.panes.pack(fill="both", expand=True)
@@ -91,7 +83,7 @@ class SimpleLibraryUI(LibraryUI):
         self.movie_picker.bind('<<ComboboxSelected>>', self.select_library_movie)
         self.batch_table = table(movie_pane, [("use", "Use", 35), ("file", "Video", 240),
             ("title", "Title", 80), ("season", "Season", 40), ("episode", "Episode", 40),
-            ("progress", "Video", 50), ("sub", "Subtitle", 80), ("state", "Status", 120),
+            ("sub", "Subtitle", 80), ("state", "Status", 120),
             ("play", "Play", 56), ("delete", "Delete", 64)], height=1,
             selectmode="extended")
         self.batch_table.configure(displaycolumns=("file", "state", "play", "delete"))
@@ -156,10 +148,8 @@ class SimpleLibraryUI(LibraryUI):
         self.vocabulary_window = VocabularyWindow(self.app, folder)
 
     def set_rows(self, rows):
-        self.auto_pending.clear()
         self.automatic_rows.clear()
         self.reported_saves.clear()
-        self.reported_prepared.clear()
         super().set_rows(rows)
         if rows:
             self.batch_table.selection_set("0")
@@ -173,85 +163,15 @@ class SimpleLibraryUI(LibraryUI):
         if not self.batch_table.selection() and self.rows:
             self.batch_table.selection_set("0")
         for index, row in enumerate(self.rows):
-            if row.state != "Exact filename — auto-download":
-                self.auto_pending.discard(index)
             if row.selected and exact_filename(row.path, row.selected) and row.state == "Exact filename — auto-download":
-                self.auto_pending.add(index)
                 self.automatic_rows.add(index)
             if row.saved and self.reported_saves.get(index) != row.saved:
                 self.reported_saves[index] = row.saved
                 prefix = "Auto-saved" if index in self.automatic_rows else "Saved"
                 self.notice.set(f"{prefix} from {row.selected.provider}: {row.saved}"
                                 if row.selected else f"{prefix} subtitle: {row.saved}")
-            if row.selected and index in self.queued and index not in self.reported_prepared:
-                self.reported_prepared.add(index)
-                prefix = "Auto-downloaded" if index in self.automatic_rows else "Downloaded"
-                self.notice.set(f"{prefix} from {row.selected.provider}; waiting for video: {row.path.name}")
         self.show_candidates()
-        self.persist_pending()
         self.movie_actions.schedule()
-
-    def persist_pending(self):
-        records = []
-        for index in sorted(self.queued):
-            row = self.rows[index]
-            if not row.selected:
-                continue
-            prepared = self.prepared.get((index, row.selected.provider, row.selected.id))
-            if not prepared:
-                continue
-            name, data = prepared
-            suffix = Path(name).suffix.lower()
-            cache_file = self.app.data / "pending" / (hashlib.sha256(data).hexdigest() + suffix)
-            cache_file.parent.mkdir(parents=True, exist_ok=True)
-            if not cache_file.exists():
-                save_subtitle(cache_file, data)
-            records.append({"path": str(row.path), "movie": asdict(row.movie), "selected": asdict(row.selected),
-                "candidates": [asdict(r) for _, r in row.candidates[:100]],
-                "torrent_hash": row.torrent_hash, "file_index": row.file_index, "progress": row.progress,
-                "cached_subtitle": cache_file.name, "automatic": index in self.automatic_rows})
-        snapshot = json.dumps(records, sort_keys=True)
-        if snapshot != self.pending_snapshot:
-            write_json(self.app.data / "pending-subtitles.json", records)
-            self.pending_snapshot = snapshot
-
-    def restore_pending(self):
-        path = self.app.data / "pending-subtitles.json"
-        if not path.exists() or self.rows or self.batch_busy:
-            return
-        try:
-            records = json.loads(path.read_text("utf-8"))
-            if not isinstance(records, list) or len(records) > 5000:
-                raise ValueError("Invalid pending subtitle queue.")
-            rows, prepared, automatic = [], {}, set()
-            for record in records:
-                cache_root = (self.app.data / "pending").resolve()
-                cache_file = (cache_root / record["cached_subtitle"]).resolve()
-                if cache_file.parent != cache_root or cache_file.suffix not in SUB_EXTENSIONS:
-                    raise ValueError("Invalid cached subtitle path.")
-                if cache_file.stat().st_size > MAX_SUBTITLE:
-                    raise ValueError("Cached subtitle too large.")
-                data = cache_file.read_bytes()
-                decode_subtitle(data)
-                result = Result(**record["selected"])
-                index = len(rows)
-                row = Episode(Path(record["path"]), Movie(**record["movie"]), selected=result,
-                    candidates=[(100, Result(**r)) for r in record.get("candidates", [record["selected"]])],
-                    state="Subtitle downloaded; waiting for video",
-                    torrent_hash=record["torrent_hash"], file_index=record["file_index"], progress=record["progress"])
-                rows.append(row)
-                prepared[(index, result.provider, result.id)] = (cache_file.name, data)
-                if record.get("automatic"):
-                    automatic.add(index)
-            self.set_rows(rows)
-            self.prepared.update(prepared)
-            self.automatic_rows.update(automatic)
-            self.queued.update(range(len(rows)))
-            self.redraw()
-            if rows:
-                self.bstatus.set(f"Restored {len(rows)} downloaded subtitles. Waiting for their videos to finish.")
-        except Exception:
-            self.bstatus.set("Could not restore the pending subtitle queue; its files were preserved.")
 
     def show_candidates(self):
         index = self.selected_row()
@@ -327,7 +247,7 @@ class SimpleLibraryUI(LibraryUI):
         state = "disabled" if self.batch_busy else "normal"
         self.movie_menu.entryconfigure("Open", state=state)
         self.movie_menu.entryconfigure("Edit episode details…", state=state)
-        deleting = self.batch_busy or self.queued or self.library_refreshing
+        deleting = self.batch_busy or self.library_refreshing
         self.movie_menu.entryconfigure("Delete", state="disabled" if deleting else "normal")
         try:
             self.movie_menu.tk_popup(screen_x, screen_y)
@@ -340,15 +260,10 @@ class SimpleLibraryUI(LibraryUI):
         if not selected:
             self.bstatus.set("Select one or more movie files first. Use Ctrl+click for multiple files.")
             return
-        if self.batch_busy or self.queued or self.library_refreshing:
+        if self.batch_busy or self.library_refreshing:
             self.bstatus.set("Finish the current subtitle work before moving videos to the Recycle Bin.")
             return
         rows = [self.rows[index] for index in selected]
-        if any(row.torrent_hash for row in rows):
-            messagebox.showwarning("Torrent-managed video",
-                "These videos are still managed by qBittorrent. Remove their torrent first, then refresh the movie library before moving the files.",
-                parent=self.root)
-            return
         library_root = self.app.settings.get("library_root", "")
         try:
             for row in rows:
@@ -378,10 +293,10 @@ class SimpleLibraryUI(LibraryUI):
             self.bstatus.set(f"Moved {len(moved)} video(s); {len(failures)} could not be moved.")
 
     def scan(self):
-        if self.batch_busy or self.queued:
-            self.bstatus.set('Finish or cancel the current subtitle queue before changing the library.')
+        if self.batch_busy:
+            self.bstatus.set('Finish or cancel the current subtitle work before changing the library.')
             return
-        folder = filedialog.askdirectory(title="Set library and qBittorrent download folder",
+        folder = filedialog.askdirectory(title="Choose movie library folder",
                                         initialdir=dialog_directory(self.app.settings.get('library_root')))
         if folder:
             self.app.settings['library_root'] = folder
@@ -410,18 +325,20 @@ class SimpleLibraryUI(LibraryUI):
             self.movie_picker.configure(values=list(found))
             if not found:
                 self.movie_choice.set('')
+                if not self.batch_busy:
+                    self.set_rows([])
                 self.bstatus.set('No movie folders found in the library.')
                 return
             if self.movie_choice.get() not in found:
                 self.movie_choice.set(next(iter(found)))
-            if not self.rows and not self.batch_busy and not self.queued:
+            if not self.batch_busy:
                 self.select_library_movie()
         self.run(lambda: discover_library(folder, excluded), done)
 
     def select_library_movie(self, event=None):
-        if self.batch_busy or self.queued:
+        if self.batch_busy:
             self.movie_choice.set(self.app.settings.get('library_selection', ''))
-            self.bstatus.set('Finish or cancel the current subtitle queue before switching movies.')
+            self.bstatus.set('Finish or cancel the current subtitle work before switching movies.')
             return
         selected = self.movie_choice.get()
         folder = self.library_folders.get(selected)
@@ -454,8 +371,6 @@ class SimpleLibraryUI(LibraryUI):
         if not languages:
             return
         self.cancel_batch = threading.Event()
-        self.queued.clear()
-        self.auto_pending.clear()
         self.batch_busy = True
         encoding = self.app.encoding.get()
         def job():
@@ -497,18 +412,16 @@ class SimpleLibraryUI(LibraryUI):
                 self.events.put(("row", index, row))
                 if exact and not self.cancel_batch.is_set():
                     try:
-                        prepared_row, waiting = self.process_subtitle(replace(row), index, encoding)
-                        self.events.put(("saved", index, prepared_row, waiting))
+                        prepared_row = self.process_subtitle(replace(row), index, encoding)
+                        self.events.put(("saved", index, prepared_row))
                     except Exception as exc:
                         from .sources import error_text
-                        from .qbittorrent import QbitError
-                        row.state = str(exc) if isinstance(exc, (ValueError, QbitError)) else error_text(exc)
+                        row.state = str(exc) if isinstance(exc, ValueError) else error_text(exc)
                         self.events.put(("row", index, row))
             return True
         def done(_):
             self.batch_busy = False
             self.bstatus.set("Search finished. Exact filenames download automatically; choose other versions in either source list.")
-            self.auto_pending.clear()
         self.run(job, done)
 
     def download_choice(self, provider):
@@ -523,11 +436,5 @@ class SimpleLibraryUI(LibraryUI):
         row.selected = row.candidates[int(selected[0])][1]
         row.enabled = True
         self.automatic_rows.discard(index)
-        self.queued.discard(index)
         self.redraw()
         self.download_batch(indices=[index])
-
-    def cancel_batch_work(self):
-        self.auto_pending.clear()
-        super().cancel_batch_work()
-        self.persist_pending()

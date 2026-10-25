@@ -113,10 +113,10 @@ class MovieInteractionTests(unittest.TestCase):
             library.redraw()
             library.open_movie()
             self.assertEqual(launch.call_args.args[3], str(subtitle))
-            library.rows[1].progress = .5
+            self.videos[1].unlink()
             library.open_movie()
             self.assertEqual(launch.call_count, 2)
-            self.assertIn("finish downloading", library.bstatus.get())
+            self.assertIn("no longer available", library.bstatus.get())
         command = MpcBe().command(Path("player.exe"), self.videos[0])
         self.assertEqual(len(command), 2)
         self.assertNotIn("/sub", command)
@@ -153,12 +153,6 @@ class MovieInteractionTests(unittest.TestCase):
             library.recycle_selected_movies()
             confirm.assert_not_called()
             library.batch_busy = False
-            library.rows[0].torrent_hash = "fixture"
-            with patch("subtitledesk.simple_ui.messagebox.showwarning") as warning:
-                library.recycle_selected_movies()
-                warning.assert_called_once()
-            confirm.assert_not_called()
-            library.rows[0].torrent_hash = ""
             library.movie_menu.invoke("Delete")
             confirm.assert_not_called()
         self.assertFalse(self.videos[0].exists())

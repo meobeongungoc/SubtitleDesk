@@ -1,4 +1,4 @@
-# SubtitleDesk 0.6.7
+# SubtitleDesk 0.7.0
 
 ## Appearance
 
@@ -20,16 +20,14 @@ another font for unsupported characters. Vertical font aliases are omitted.
 
 ## Fixed movie library
 
-Use **Library folder…** to set a persistent library root. This installation uses
-`D:\MOVIE`, also configured as qBittorrent's default save directory. Existing
-torrents keep their current locations; category-specific overrides in qBittorrent
-may still use their own paths. Torrents added through this tool use the library root.
+Use **Library folder…** to set a persistent library root containing your local movies and series.
+The app scans files already present in that folder and its subfolders.
 
 Use the selector beside **Movie files** to choose a movie/series folder. Nested
 season folders are scanned together. **Refresh** discovers newly added
-folders; the tool's own application directory is excluded. Videos directly in the
+folders and reloads the selected folder’s videos; the tool's own application directory is excluded. Videos directly in the
 root appear under **Movies in library root**. Finish or cancel active subtitle work
-before switching movies so queued subtitles are not discarded.
+before switching movies.
 
 The duplicate content logo/title is removed. Rounded cards, shaded buttons, thin borders, monochrome icons and coordinated
 four-theme palettes provide the visual styling. Appearance settings are in a
@@ -49,9 +47,12 @@ The portable package includes its Python runtime. Keep `_internal` next to the e
 
 The window shows three lists at the same time:
 
-1. **Movie files** — choose a folder, including its subfolders, or import a torrent's files.
+1. **Movie files** — browse videos in your movie library, including nested season folders.
 2. **SubDL** — subtitles for the selected video from SubDL.
 3. **OpenSubtitles** — subtitles for the same video from OpenSubtitles.
+
+**Play** and **Delete** appear on every movie row. Play opens that episode; Delete moves
+only that video to the Windows Recycle Bin immediately without confirmation, keeping its subtitles.
 
 Click **Find subtitles** to search the folder. Select a movie on the left to compare both sources.
 Double-click a movie or press **Enter** to open it in the configured player. Saved subtitles are
@@ -64,17 +65,14 @@ Right-click a selected video to keep the group selected and open its context men
 that video. **Shift+F10** or the keyboard Menu key also opens the menu.
 
 **Delete** in the menu or on the keyboard immediately moves selected videos to the Windows
-Recycle Bin without a confirmation dialog. Sidecar subtitles stay in their folders. Active subtitle work and
-torrent-managed videos retain their deletion safeguards. Use **Edit episode details…** to
+Recycle Bin without a confirmation dialog. Sidecar subtitles stay in their folders. Finish active subtitle work before deleting videos. Use **Edit episode details…** to
 correct the title, year, season or episode used for searching; video files are never renamed.
 
 To remove videos from the library, select one or more rows in **Movie files** using Ctrl+click
 or Shift+click, then right-click and choose **Delete**. Files move immediately without a
 confirmation dialog. Only the video files move to the Windows Recycle Bin; matching subtitle files stay in their folders.
 This action is available for videos on a local fixed drive inside the chosen movie library.
-Finish active subtitle work first. Videos imported directly from an active qBittorrent torrent
-cannot be moved here. If qBittorrent still manages a folder-scanned video, it may download
-the file again.
+Finish active subtitle work first.
 
 The language menu lists **Vietnamese**, **English**, **Vietnamese + English**, then other languages.
 The choice filters both source lists. With both selected, Vietnamese exact matches take priority.
@@ -109,40 +107,13 @@ Bin, including subtitles in other languages. Videos and unrelated files remain i
 added or changed after the scan are kept; scan again if you want to include them. If export is
 cancelled or fails, no subtitles are moved. The status line reports how many were moved or kept.
 
-## Videos still downloading
+## Local file workflow
 
-The app can download a subtitle before its video finishes. It shows **Subtitle downloaded; waiting
-for video** and saves a prepared copy in `data/pending`. When qBittorrent reports the video complete,
-the app resolves its current location again and applies the subtitle.
+Searches and downloads use the video files currently present in your chosen library.
+Subtitles are validated and saved directly beside each video. If a video is moved or removed,
+refresh the library and search again. **Cancel** stops current work; subtitles already saved remain.
 
-Keep SubtitleDesk open for automatic application. Closing it retains the prepared queue in
-`data/pending-subtitles.json`; reopening resumes it. It does not install a background service or
-Windows startup task. A torrent removed from qBittorrent, a renamed file or a deselected video
-requires you to check/import it again.
-
-**Cancel** stops the current work and clears its active waiting queue. Already saved subtitles stay.
-Choosing a different folder replaces the active list and queue.
-
-## Torrents
-
-Open **Torrents** to connect to qBittorrent, view downloads or search its installed plugins.
-The local connection on this machine is `http://127.0.0.1:18080`.
-Use **Import selected movie files** to bring a torrent's episode list into the main window.
-
-Opening SubtitleDesk or changing the movie library does not start qBittorrent. Opening **Torrents**
-connects to it or starts it if needed. While SubtitleDesk remains open, it watches downloads it has
-observed. After every torrent has finished downloading and any prepared subtitles have been applied,
-it asks qBittorrent to exit through its WebUI, including when qBittorrent is in the system tray.
-An incomplete, paused or checking torrent keeps qBittorrent open. Opening **Torrents** again starts it
-when you need another search or download. If SubtitleDesk is closed, it cannot watch for completion.
-
-You can add a selected search result, magnet/URL or `.torrent` file. The normal app asks for a save
-folder and confirmation before adding a torrent. A new film does not require a new Python script.
-Search plugin results are supplied by the source websites; displayed seed/peer totals may be stale.
-Connected peer counts in Downloads are from qBittorrent.
-
-Live-check scripts under `tests/live` are development checks, not components of the portable app.
-They are not run by normal searches or downloads.
+Old prepared-download cache files from earlier versions are left untouched and are not resumed.
 
 ## Settings and credentials
 
@@ -192,18 +163,7 @@ Build and checks:
 .\.venv\Scripts\python.exe build.py
 ```
 
-See `VERIFICATION.md` for evidence and remaining limits. The 2026-10-20 live check downloaded
-20 English S01 subtitles from SubDL and 20 Vietnamese S01 subtitles from OpenSubtitles.
-The Gravity Falls BluRay video download was still in progress at that check; playback/timing had
-not yet been validated for that season.
-# Appearance (0.4)
-
-Use the Theme selector below the app header to choose Modern Neutral · Blue,
-Warm Neutral · Beige, Green Accent, or Purple Accent. Changes apply immediately
-to the main view, Settings, Torrents and subtitle preview, and are saved for the
-next launch. The shared cat logo appears in the header and application icon.
-Saved subtitles remain green; exact filename matches use the current accent.
-Windows file pickers and system message boxes follow Windows appearance settings.
+See `VERIFICATION.md` for checks and remaining limits of the current version.
 
 ## Updating without interrupting an open app
 

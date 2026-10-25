@@ -143,11 +143,6 @@ class Application:
         self.tools_window.geometry("1080x780")
         self.tools_window.protocol("WM_DELETE_WINDOW", self.tools_window.withdraw)
         self.tools_window.withdraw()
-        self.torrent_window = tk.Toplevel(self.root)
-        self.torrent_window.title("SubtitleDesk — Torrents")
-        self.torrent_window.geometry("1120x780")
-        self.torrent_window.protocol("WM_DELETE_WINDOW", self.torrent_window.withdraw)
-        self.torrent_window.withdraw()
         notebook = ttk.Notebook(self.tools_window)
         notebook.pack(fill="both", expand=True)
         self.workflow = ttk.Frame(notebook, padding=12)
@@ -244,16 +239,6 @@ class Application:
         self.notebook.select(frame)
         self.tools_window.deiconify()
         self.tools_window.lift()
-
-    def show_torrents(self):
-        self.torrent_window.deiconify()
-        self.torrent_window.lift()
-        self.library.connect()
-
-    def show_subtitles(self):
-        self.torrent_window.withdraw()
-        self.root.deiconify()
-        self.root.lift()
 
     def build_sources(self):
         ttk.Label(self.sources, text="Your sources", font=("Segoe UI", 14, "bold")).pack(anchor="w")

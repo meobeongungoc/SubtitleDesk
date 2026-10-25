@@ -16,9 +16,6 @@ class Episode:
     state: str = "Not searched"
     candidates: list = field(default_factory=list)
     selected: Result | None = None
-    torrent_hash: str = ""
-    file_index: int = -1
-    progress: float = 1.0
     saved: str = ""
 
 
