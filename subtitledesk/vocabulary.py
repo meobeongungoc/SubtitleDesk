@@ -341,10 +341,15 @@ def export_anki(report, path):
         os.fsync(stream.fileno())
 
 
-def recycle_scanned_subtitles(report):
+def recycle_scanned_subtitles(report, cancel=None, progress=None):
     """Recycle unchanged subtitle files captured by the completed folder scan."""
     moved, kept = 0, []
-    for relative, device, inode, size, modified in report.scanned_subtitles:
+    for index, (relative, device, inode, size, modified) in enumerate(report.scanned_subtitles):
+        if cancel is not None and cancel.is_set():
+            kept.extend((item[0], 'Cleanup cancelled; file kept') for item in report.scanned_subtitles[index:])
+            break
+        if progress:
+            progress(index + 1, len(report.scanned_subtitles))
         path = report.root / relative
         try:
             path = validate_subtitle(path, report.root)

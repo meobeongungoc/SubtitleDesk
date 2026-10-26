@@ -56,13 +56,13 @@ class ExactAutoTests(unittest.TestCase):
                     deadline = time.monotonic() + 8
                     while time.monotonic() < deadline:
                         app.root.update()
-                        if not library.batch_busy and (root / 'Show.S01E01.srt').exists():
+                        if not library.batch_busy and (root / 'Show.S01E01.vi.srt').exists():
                             break
                         time.sleep(.01)
                     confirmation.assert_not_called()
                 self.assertEqual(source.downloads, 1)
-                self.assertEqual((root / 'Show.S01E01.srt').read_bytes(), SRT)
-                self.assertFalse((root / 'Show.S01E02.srt').exists())
+                self.assertEqual((root / 'Show.S01E01.vi.srt').read_bytes(), SRT)
+                self.assertFalse((root / 'Show.S01E02.vi.srt').exists())
                 self.assertEqual(library.rows[1].state, 'Choose a subtitle')
                 self.assertIn('Auto-saved', library.notice.get())
                 self.assertEqual(len(library.panes.panes()), 3)

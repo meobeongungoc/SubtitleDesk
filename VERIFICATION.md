@@ -1,36 +1,37 @@
-# SubtitleDesk 0.7.0 — kiểm chứng
+# SubtitleDesk 0.8.0 — kiểm chứng
 
-Bản này dùng thư mục video cục bộ: duyệt thư viện, tìm/tải phụ đề, Play và Delete theo từng tập.
-Các phép thử dùng thư mục tạm và provider fixture; không sửa phim thật hay khóa API.
+Bản này dùng một cửa sổ với Library, Vocabulary, Settings và Appearance. Không còn tab Preview.
+Settings cuộn được; chỉnh thông tin tập, chọn file phụ đề và xác nhận ghi đè hiện nội tuyến.
+Hộp chọn tệp/thư mục Windows vẫn được giữ. Play/Delete nằm trên từng dòng; Delete không hỏi xác nhận.
 
-## Phạm vi kiểm tra
+## Đã kiểm tra trên mã nguồn
 
-- Khởi tạo với cấu hình cũ: giữ theme/ngôn ngữ/thư mục phim; không mở kết nối tải video.
-- Cache và file hàng chờ cũ giữ nguyên byte, không tự khôi phục hoặc áp dụng vào phim.
-- Duyệt thư viện, đổi phim khi không bận, quét lại danh sách hiện tại khi Refresh;
-  thư mục không còn video sẽ xóa danh sách cũ khỏi giao diện.
-- Tìm phụ đề, tự tải bản trùng tên chính xác, chọn bản khác và gói cả mùa;
-  lưu cạnh video, tái sử dụng gói trong bộ nhớ, không ghi đè phụ đề có sẵn.
-- Play/Delete theo đúng dòng, thao tác nhiều lựa chọn, cuộn/sắp xếp và bốn theme;
-  Delete chuyển video mẫu thật vào Recycle Bin không hỏi xác nhận, giữ phụ đề.
-- Gói portable: kiểm tra sau khi build bằng giải nén mới, chạy executable,
-  Native Messaging và loại trừ cấu hình/khóa/media của người dùng.
+- 75 test offline: core, provider fixture, thư mục phim, phim lẻ, gói mùa, hai ngôn ngữ,
+  tự tải bản trùng tên, an toàn ghi đè, thao tác từng dòng và nhiều lựa chọn.
+- Phim lẻ nhận phụ đề đơn đúng bản; phụ đề tập và gói không rõ ràng bị từ chối.
+- Việt và Anh lưu thành `.vi.srt` / `.en.srt`; phụ đề cũ không rõ ngôn ngữ giữ nguyên.
+- Kéo thả khi bận bị chặn. Event từ lượt cũ/sai đường dẫn/sai chỉ số không sửa danh sách mới.
+- Quét thư mục lập chỉ mục phụ đề một lần; bảng chỉ cập nhật dòng đổi, giữ lựa chọn/sắp xếp.
+- Kho khóa lỗi không ngăn khởi động; dữ liệu gốc được giữ. Reset có bước xác nhận nội tuyến
+  và lưu bản gốc trong thư mục dữ liệu riêng trước khi đặt lại.
+- Export Anki và dọn phụ đề chạy nền; giao diện còn phản hồi, không xuất trùng khi nhấn lại;
+  giữ file đổi sau scan, chỉ dọn sau khi ghi TXT thành công. Có tiến độ và hủy phần còn lại.
+- Các trang dùng chung một Tk root; không tạo Toplevel riêng cho nội dung app.
+- Bốn theme được kiểm tra bằng widget và ảnh render từ instance test đặt ngoài màn hình,
+  không lấy focus. Có kiểm tra font, persistence, scroll/sort và nút từng dòng.
 
-## Giới hạn
-
-- Provider trực tuyến được kiểm tra bằng fixture trong lần sửa này; không lặp lại tải thật
-  qua tài khoản SubDL/OpenSubtitles. Khả năng đồng bộ timing cần kiểm tra theo từng video.
-- Play theo dòng được kiểm tra định tuyến bằng mock. Kiểm tra MPC-BE thật trước đó đã xác nhận
-  mở video mẫu và nạp phụ đề qua `/slave`; lần sửa này không thay adapter player.
-- Chưa kiểm tra trên một máy Windows sạch khác hoặc thao tác extension thật trong trình duyệt.
-- Cache/runtime và credentials không nằm trong gói phát hành; giữ `data` để bảo toàn thiết lập.
-
-## Chạy lại
+Test runner thu gom chu kỳ của nhiều Tk instance trên UI thread. Chạy bằng:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe tests/run_tests.py
 .\.venv\Scripts\python.exe build.py
-.\.venv\Scripts\python.exe tests\check_package.py
 ```
 
-Kết quả chính xác của lần kiểm tra và bản build nằm trong `test-artifacts` tại máy phát triển.
+## Giới hạn và bằng chứng đóng gói
+
+- Không gọi tài khoản SubDL/OpenSubtitles thật trong lần sửa này.
+- Lệnh mở player được mock trong hồi quy; adapter MPC-BE không đổi. Chưa kiểm tra lại player thật.
+- Không kiểm tra extension trong hồ sơ trình duyệt thật hoặc trên máy Windows sạch khác.
+- Gói build được kiểm tra riêng sau giải nén mới; kết quả và SHA256 lưu cục bộ trong test-artifacts.
+  Mã nguồn/gói không bao gồm dữ liệu, khóa API, lịch sử hay phim của người dùng.
+- Không tự đóng/restart app người dùng; tiến trình kiểm tra gói có thư mục và dữ liệu fixture riêng.

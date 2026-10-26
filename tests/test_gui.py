@@ -54,11 +54,11 @@ class GuiTests(unittest.TestCase):
                 wait()
                 self.assertEqual(source.downloads, 1)
                 self.assertTrue(all(r.state.startswith("Saved:") for r in library.rows))
-                self.assertEqual((root / "Show.S01E02.srt").read_bytes(), SRT)
+                self.assertEqual((root / "Show.S01E02.vi.srt").read_bytes(), SRT)
                 library.batch_table.selection_set("1")
                 with patch("subtitledesk.players.launch") as launch:
                     library.open_episode()
-                    self.assertEqual(Path(launch.call_args.args[3]).resolve(), (root / "Show.S01E02.srt").resolve())
+                    self.assertEqual(Path(launch.call_args.args[3]).resolve(), (root / "Show.S01E02.vi.srt").resolve())
                 library.download_batch()
                 wait()
                 self.assertEqual(source.downloads, 1)
@@ -87,7 +87,9 @@ class GuiTests(unittest.TestCase):
                     self.assertEqual(app.save(), str(output))
                     with patch("subtitledesk.gui.messagebox.askyesno", return_value=False) as prompt:
                         self.assertIsNone(app.save())
-                        prompt.assert_called_once()
+                        prompt.assert_not_called()
+                        self.assertIsNotNone(app.pending_confirmation)
+                        app.cancel_confirmation()
                 self.assertEqual(output.read_bytes(), SRT)
                 self.assertEqual(set(app.registry.providers), {"subdl", "opensubtitles"})
                 for var in app.enabled.values():

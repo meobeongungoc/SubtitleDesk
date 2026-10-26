@@ -160,6 +160,8 @@ class ThemeManager:
             widget.configure(font=(self.font_family, actual['size'], actual['weight'], actual['slant']))
         if isinstance(widget, (tk.Tk,tk.Toplevel)):
             self._native(widget)
+        elif isinstance(widget, tk.Canvas):
+            widget.configure(background=c['bg'])
         elif isinstance(widget, tk.Menu):
             widget.configure(background=c['panel'], foreground=c['text'],
                              activebackground=c['selection'], activeforeground='#ffffff',

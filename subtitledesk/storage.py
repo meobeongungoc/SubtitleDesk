@@ -1,4 +1,5 @@
 import base64
+import binascii
 import ctypes
 import json
 import os
@@ -82,12 +83,23 @@ def protect(data: bytes, decrypt=False) -> bytes:
         kernel.LocalFree(ctypes.cast(target.pbData, ctypes.c_void_p))
 
 
+class CredentialError(ValueError):
+    """Safe credential failure; the original storage is never replaced implicitly."""
+
+
 class SecretStore:
     def __init__(self, root: Path):
         self.path = root / "secrets.json"
 
     def _load(self):
-        return json.loads(self.path.read_text("utf-8")) if self.path.exists() else {}
+        try:
+            values = json.loads(self.path.read_text("utf-8")) if self.path.exists() else {}
+            if not isinstance(values, dict) or any(not isinstance(k, str) or not isinstance(v, str)
+                                                    for k, v in values.items()):
+                raise ValueError()
+            return values
+        except (OSError, ValueError):
+            raise CredentialError("Credential storage cannot be read. Its original file has been preserved. Restore it or choose Reset credentials in Settings.") from None
 
     def set(self, provider: str, field: str, value: str):
         values = self._load()
@@ -100,4 +112,15 @@ class SecretStore:
 
     def get(self, provider: str, field: str) -> str:
         encoded = self._load().get(f"{provider}:{field}")
-        return protect(base64.b64decode(encoded), decrypt=True).decode("utf-8") if encoded else ""
+        try:
+            return protect(base64.b64decode(encoded, validate=True), decrypt=True).decode("utf-8") if encoded else ""
+        except (OSError, ValueError, binascii.Error):
+            raise CredentialError("This saved credential cannot be decrypted on this Windows profile. Enter and save it again in Settings.") from None
+
+    def reset(self):
+        """An explicit user action archives the old store before creating an empty one."""
+        import uuid
+        backup = self.path.with_name('secrets-unreadable-' + uuid.uuid4().hex + '.json')
+        if self.path.exists():
+            self.path.rename(backup)
+        return backup

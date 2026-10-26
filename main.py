@@ -1,6 +1,7 @@
 import ctypes
 import hashlib
 import os
+import sys
 from subtitledesk.bridge import app_root
 
 
@@ -21,7 +22,16 @@ def main():
             return
     from subtitledesk.gui import Application
     try:
-        Application(root).run()
+        hidden = "--hidden" in sys.argv
+        app = Application(root, hidden=hidden)
+        if hidden:
+            from subtitledesk.storage import write_json
+            def diagnostic_state():
+                write_json(root / "data" / "window-diagnostic.json",
+                           {"hidden_requested": True, "tk_state": app.root.state(),
+                            "viewable": bool(app.root.winfo_viewable())})
+            app.root.after(500, diagnostic_state)
+        app.run()
     finally:
         if mutex:
             kernel.CloseHandle.argtypes = [ctypes.c_void_p]

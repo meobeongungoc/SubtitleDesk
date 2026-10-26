@@ -12,9 +12,9 @@
 - `sources.py`: SubDL v1 và OpenSubtitles REST API, chuẩn hóa kết quả/tập, bảo vệ credentials,
   từ chối redirect API khác host, allowlist miền tải. Không có khóa được nhúng.
 - `batch.py`: quét video, nhận diện tập, chấm khớp nghiêm ngặt, chọn phụ đề trong gói mùa,
-  lưu sidecar đúng tên bằng exclusive-create.
+  lưu sidecar theo tên phim và mã ngôn ngữ bằng exclusive-create.
 - `library_ui.py`: các thao tác tập phim cục bộ, tìm/tải phụ đề, cache gói mùa trong bộ nhớ,
-  nhận kết quả qua queue để chỉ cập nhật giao diện trên main thread.
+  nhận kết quả qua queue có generation + đường dẫn phim, cập nhật dòng trên main thread.
 - `simple_ui.py`: duyệt thư viện thư mục phim và hai nguồn phụ đề song song; Play/Delete mỗi dòng.
   Refresh quét lại thư mục đang chọn. Không có hàng chờ chờ video tải xong.
 - `storage.py`: JSON cấu hình; Windows DPAPI cho thông tin xác thực.
@@ -72,7 +72,7 @@ riêng và chỉ bật khi player chạy với endpoint phù hợp. Không giả
 
 ## Các giới hạn có chủ ý
 
-Hai website đã có adapter, nhưng chưa kiểm tra tài khoản thật vì chưa có API key.
+Hai website đã có adapter. Bản 0.8.0 được kiểm tra offline bằng nguồn giả lập; chưa kiểm tra API thật trong đợt này.
 Chưa có RAR/7z, OCR, nạp nóng MPC-BE, auto-sync, hay adapter player khác.
 Chưa phát hành lên store/ký extension/ký exe. Không sửa player và không đổi mặc định hệ thống.
 Tất cả cấu hình ở `data` cạnh app; cần chạy ở thư mục người dùng có quyền ghi.

@@ -1,5 +1,6 @@
 """Background vocabulary scans with a preview and explicit Anki export."""
 import gc
+import copy
 from pathlib import Path
 import queue
 import threading
@@ -13,11 +14,8 @@ from .storage import dialog_directory
 class VocabularyWindow:
     def __init__(self, app, folder=''):
         self.app = app
-        self.window = tk.Toplevel(app.root)
-        self.window.title('SubtitleDesk — Vocabulary')
-        self.window.geometry('920x620')
-        self.window.minsize(700, 500)
-        self.window.protocol('WM_DELETE_WINDOW', self.close)
+        self.window = ttk.Frame(app.vocabulary_page)
+        self.window.pack(fill="both", expand=True)
         self.window.bind('<Destroy>', self.destroyed, add='+')
         self.events = queue.Queue()
         self.cancel = threading.Event()
@@ -73,6 +71,7 @@ class VocabularyWindow:
         ttk.Label(bottom, textvariable=self.status, wraplength=700).pack(side='left', fill='x', expand=True)
         self.details_button = ttk.Button(bottom, text='Scan details', command=self.details, state='disabled')
         self.details_button.pack(side='right')
+        self.details_text = tk.Text(body, height=5, wrap='word')
         self.folder.trace_add('write', self.invalidate)
         self.levels.trace_add('write', self.invalidate)
         app.theme_manager.apply(app.theme_key)
@@ -142,11 +141,18 @@ class VocabularyWindow:
     def poll(self):
         if self.closed:
             return
-        while True:
+        for _ in range(100):
             try:
                 event = self.events.get_nowait()
             except queue.Empty:
                 break
+            if event[0] == 'cleanup_progress':
+                self.progress.configure(value=event[1], maximum=max(1, event[2]))
+                self.status.set(f'Saved export. Recycling subtitles: {event[1]}/{event[2]}')
+                continue
+            if event[0] == 'export_done':
+                self.finish_export(event)
+                continue
             if event[0] == 'progress':
                 self.progress.configure(value=event[1], maximum=max(1, event[2]))
                 self.status.set(f'{event[1]}/{event[2]} · {event[3]}')
@@ -181,26 +187,57 @@ class VocabularyWindow:
         if not path:
             return
         self.remember_directory('vocabulary_export_dir', Path(path).parent)
-        try:
-            export_anki(self.report, path)
-        except FileExistsError:
-            self.status.set('That file already exists. Choose a new export filename.')
-        except (OSError, ValueError) as exc:
-            self.status.set('Could not save export: ' + str(exc))
+        report = copy.deepcopy(self.report)
+        self.busy = True
+        self.cancel.clear()
+        for control in (self.scan_button, self.browse_button, self.folder_entry, self.level_picker,
+                        self.export_button, self.details_button):
+            control.configure(state='disabled')
+        self.cancel_button.configure(state='normal')
+        self.status.set('Saving Anki TXT…')
+        def worker():
+            try:
+                export_anki(report, path)
+            except FileExistsError:
+                self.events.put(('export_done', None, 0, [], 'That file already exists. Choose a new export filename.'))
+            except Exception:
+                self.events.put(('export_done', None, 0, [], 'Could not save export. No subtitles were recycled. Check file access and try another filename.'))
+            else:
+                try:
+                    moved, kept = recycle_scanned_subtitles(report, cancel=self.cancel,
+                        progress=lambda current, total: self.events.put(('cleanup_progress', current, total)))
+                    self.events.put(('export_done', path, moved, kept, ''))
+                except Exception:
+                    self.events.put(('export_done', path, 0, [], 'Export saved; subtitle cleanup could not finish. Remaining files were kept.'))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def finish_export(self, event):
+        _, path, moved, kept, error = event
+        self.busy = False
+        for control in (self.scan_button, self.browse_button, self.folder_entry):
+            control.configure(state='normal')
+        self.level_picker.configure(state='readonly')
+        self.cancel_button.configure(state='disabled')
+        self.export_button.configure(state='normal' if self.report and self.report.cards else 'disabled')
+        self.details_button.configure(state='normal' if self.report else 'disabled')
+        if error:
+            self.status.set(error)
         else:
-            self.status.set('Anki TXT saved. Moving scanned subtitles to the Recycle Bin…')
-            self.window.update_idletasks()
-            moved, kept = recycle_scanned_subtitles(self.report)
-            self.status.set(f'Exported {len(self.report.cards)} cards to {path}. Moved {moved} subtitle(s) to the Recycle Bin; kept {len(kept)} changed or unavailable file(s).')
-            if kept:
-                messagebox.showwarning('Some subtitles were kept',
-                    '\n'.join(f'{name}: {reason}' for name, reason in kept[:8]), parent=self.window)
+            self.status.set(f'Exported {len(self.report.cards)} cards to {path}. Moved {moved} subtitle(s) to the Recycle Bin; kept {len(kept)} file(s).')
+        if kept:
+            self.set_details('\n'.join(f'{name}: {reason}' for name, reason in kept))
+
+    def set_details(self, text):
+        self.details_text.configure(state='normal')
+        self.details_text.delete('1.0', 'end')
+        self.details_text.insert('1.0', text)
+        self.details_text.configure(state='disabled')
+        self.details_text.pack(fill='x', pady=(8, 0))
 
     def details(self):
         if self.report:
-            reasons = '\n'.join(f'{path}: {reason}' for path, reason in self.report.skipped[:30]) or 'No files were skipped.'
-            messagebox.showinfo('Vocabulary scan details',
-                f'Folder: {self.report.root}\nDuplicate copies skipped: {self.report.duplicates}\n\n{reasons}', parent=self.window)
+            reasons = '\n'.join(f'{path}: {reason}' for path, reason in self.report.skipped) or 'No files were skipped.'
+            self.set_details(f'Folder: {self.report.root}\nDuplicate copies skipped: {self.report.duplicates}\n\n{reasons}')
 
     def stop(self):
         if self.closed:
@@ -214,5 +251,4 @@ class VocabularyWindow:
             self.stop()
 
     def close(self):
-        self.stop()
-        self.window.destroy()
+        self.app.pages.select(self.app.main_content)

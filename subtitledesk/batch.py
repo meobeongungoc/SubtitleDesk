@@ -17,6 +17,9 @@ class Episode:
     candidates: list = field(default_factory=list)
     selected: Result | None = None
     saved: str = ""
+    saved_languages: dict = field(default_factory=dict)
+    ambiguous: bool = False
+    saved_result_ids: dict = field(default_factory=dict)
 
 
 def identify(path: Path, title="", season="") -> Movie:
@@ -36,26 +39,50 @@ def identify(path: Path, title="", season="") -> Movie:
                    season=season or value.season or (str(int(folder_season[1])) if folder_season else ""))
 
 
-def existing_subtitle(path: Path):
+def subtitle_index(directory):
+    """Enumerate each directory once; never follow a subtitle symlink."""
+    return sorted((p for p in Path(directory).iterdir()
+                   if p.suffix.lower() in SUB_EXTENSIONS and p.is_file() and not p.is_symlink()),
+                  key=lambda p: p.name.casefold())
+
+
+def existing_subtitle(path: Path, language=None, index=None):
     prefix = path.stem.casefold()
-    return next((p for p in path.parent.iterdir() if p.is_file() and p.suffix.lower() in SUB_EXTENSIONS
-                 and (p.stem.casefold() == prefix or p.stem.casefold().startswith(prefix + "."))), None)
+    candidates = subtitle_index(path.parent) if index is None else index
+    for item in candidates:
+        stem = item.stem.casefold()
+        if language:
+            if stem == prefix + '.' + language.lower() or stem.startswith(prefix + '.' + language.lower() + '.'):
+                return item
+        elif stem == prefix or stem.startswith(prefix + '.'):
+            return item
+    return None
 
 
-def scan_folder(folder, recursive=False, title="", season=""):
+def saved_tracks(path, languages, index=None):
+    return {language: str(found) for language in languages
+            if (found := existing_subtitle(path, language, index))}
+
+
+def scan_folder(folder, recursive=False, title="", season="", languages=("vi", "en")):
     root = Path(folder).resolve()
     rows = []
     for directory, dirs, files in os.walk(root, followlinks=False):
         dirs[:] = [d for d in dirs if not (Path(directory) / d).is_symlink()
                    and not getattr(Path(directory) / d, "is_junction", lambda: False)()]
+        subtitles = subtitle_index(directory)
         for name in sorted(files, key=str.casefold):
             path = Path(directory) / name
             if path.suffix.lower() not in VIDEO_EXTENSIONS or path.is_symlink():
                 continue
             movie = identify(path, title, season)
-            found = existing_subtitle(path)
-            state = "Subtitle exists" if found else ("Edit season/episode" if not movie.season or not movie.episode else "Not searched")
-            rows.append(Episode(path, movie, not bool(found), state))
+            tracks = saved_tracks(path, languages, subtitles)
+            ambiguous = bool(re.search(r"(?i)S\d+E\d+(?:E\d+|[- ]+E?\d+)\b|(?:tập|tap|ep(?:isode)?)\s*\d+\s*-\s*\d+", path.stem))
+            incomplete = bool(movie.season) != bool(movie.episode)
+            state = "Subtitles exist" if all(lang in tracks for lang in languages) else (
+                "Edit season/episode" if ambiguous or incomplete else "Not searched")
+            rows.append(Episode(path, movie, not all(lang in tracks for lang in languages), state,
+                                saved_languages=tracks, ambiguous=ambiguous))
             if len(rows) >= 5000:
                 raise ValueError("Thư mục có hơn 5.000 video; hãy chọn thư mục phim cụ thể hơn.")
         if not recursive:
@@ -105,6 +132,20 @@ def rank(movie, result, language):
 
 
 def select_file(movie, result, candidates):
+    if not movie.season and not movie.episode:
+        if result.season_pack or result.season or result.episode:
+            raise ValueError("An episode or season pack cannot be applied to a standalone movie.")
+        eligible = [(name, data) for name, data in candidates
+                    if not identify(Path(name)).season and not identify(Path(name)).episode]
+        if len(eligible) == len(candidates) == 1:
+            return eligible[0]
+        exact = [(name, data) for name, data in eligible
+                 if Path(name).name.casefold() == Path(result.filename).name.casefold()]
+        if len(exact) == 1:
+            return exact[0]
+        raise ValueError("Archive contains multiple or episodic subtitles; use Import local subtitle / ZIP in Settings.")
+    if not movie.season.isdecimal() or not movie.episode.isdecimal():
+        raise ValueError("Confirm numeric season and episode before applying this subtitle.")
     matches = []
     for name, data in candidates:
         info = identify(Path(name))
@@ -114,7 +155,7 @@ def select_file(movie, result, candidates):
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
-        raise ValueError("ZIP contains multiple files for this episode; choose a file in Single file / Preview.")
+        raise ValueError("ZIP contains multiple files for this episode; use Import local subtitle / ZIP in Settings.")
     if len(candidates) == 1 and not result.season_pack:
         info = identify(Path(candidates[0][0]))
         if info.season or info.episode:
@@ -129,11 +170,14 @@ def select_file(movie, result, candidates):
 def save_episode(row, name, data, encoding="auto"):
     if not row.path.is_file():
         raise ValueError("The video file is not available at its current location.")
-    existing = existing_subtitle(row.path)
+    language = row.selected.language if row.selected else None
+    existing = existing_subtitle(row.path, language)
     if existing:
         return None
     decode_subtitle(data, encoding)
-    # Exactly the movie stem, no language suffix by default.
-    destination = row.path.with_suffix(Path(name).suffix.lower())
+    if language and not re.fullmatch(r"[a-z]{2,3}(?:-[a-z0-9]{2,8})?", language):
+        raise ValueError("Unsupported subtitle language code.")
+    suffix = ('.' + language if language else '') + Path(name).suffix.lower()
+    destination = row.path.with_name(row.path.stem + suffix)
     save_subtitle(destination, data, overwrite=False)
     return destination

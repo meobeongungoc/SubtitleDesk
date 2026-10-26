@@ -13,7 +13,7 @@ SubtitleDesk is a Windows movie folder browser and subtitle downloader. It scans
 
 Choose a movie folder and search its episodes together. SubtitleDesk highlights exact filename matches and can download and apply them automatically. You can also compare other results, choose a different version, and filter by Vietnamese, English, both, or another available language.
 
-Subtitles are saved with the same base name as the video, so supported players can find them easily. Existing subtitle files are kept safe from being overwritten.
+Subtitles keep the video base name and use language suffixes such as `.vi.srt` and `.en.srt`, so both tracks can coexist and supported players can find them easily. Existing subtitle files are kept safe from being overwritten.
 
 ## Browse and manage your library
 
@@ -21,6 +21,7 @@ Subtitles are saved with the same base name as the video, so supported players c
 - **Movie folders:** select a library root, switch between movies/series, and refresh to discover new videos.
 - **MPC-BE:** open a completed video with its selected subtitle.
 - **Browser connection:** optionally send a page title, URL, or text you select from Edge, Chrome, or Firefox to the app.
+- **One window:** Library, Vocabulary, Settings and Appearance stay in the same window, with inline progress and errors.
 - **Personalize the app:** choose one of four themes and a font installed on Windows.
 - **Manage episodes:** every movie row has **Play** and **Delete** buttons. Play opens that episode; Delete immediately moves only that video to the Windows Recycle Bin without confirmation and keeps its subtitles. You can also double-click to play, select several videos with Ctrl/Shift, and use the right-click menu or Delete key to move videos immediately to the Windows Recycle Bin without a confirmation dialog. Sidecar subtitles stay in place.
 

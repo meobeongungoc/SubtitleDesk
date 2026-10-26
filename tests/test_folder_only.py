@@ -41,7 +41,7 @@ class FolderOnlyTests(unittest.TestCase):
                 self.assertFalse(hasattr(app.library, "restore_pending"))
                 self.assertNotIn("subtitledesk.qbittorrent", sys.modules)
                 # Run discovery and folder loading through their real callbacks synchronously.
-                app.library.run = lambda job, done: done(job())
+                app.library.run = lambda job, done, **kwargs: done(job())
                 with patch.object(app.engine, "download", side_effect=AssertionError("Unexpected old queue download")):
                     app.library.refresh_library()
                     app.library.poll()
@@ -76,7 +76,7 @@ class FolderOnlyTests(unittest.TestCase):
             try:
                 library = app.library
                 app.settings["library_root"] = str(movies)
-                library.run = lambda job, done: done(job())
+                library.run = lambda job, done, **kwargs: done(job())
                 library.refresh_library()
                 self.assertEqual(len(library.rows), 1)
                 second = movies / "Show.S01E02.mkv"

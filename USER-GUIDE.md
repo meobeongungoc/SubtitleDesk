@@ -1,8 +1,8 @@
-# SubtitleDesk 0.7.0
+# SubtitleDesk 0.8.0
 
 ## Appearance
 
-Open **Appearance** in the main toolbar to select Blue, Beige, Green or Purple.
+Open the **Appearance** tab to select Blue, Beige, Green or Purple.
 The selected theme is preserved across updates and restarts. All three movie and
 subtitle lists remain visible together. Drag the separators to adjust their widths.
 Small windows and large fonts show fewer rows; scroll to see remaining items.
@@ -31,7 +31,7 @@ before switching movies.
 
 The duplicate content logo/title is removed. Rounded cards, shaded buttons, thin borders, monochrome icons and coordinated
 four-theme palettes provide the visual styling. Appearance settings are in a
-separate window; the toolbar wraps when space is limited. The application icon
+tab within the main window; the toolbar wraps when space is limited. The application icon
 remains in the Windows title bar/taskbar.
 
 ### Appearance
@@ -41,9 +41,18 @@ slider ranges from 0 to 100 in steps of 5: zero means full opacity and 100 means
 65% opacity. It affects the entire window and saves automatically.
 
 Run `START.cmd`, or run `dist/SubtitleDesk/SubtitleDesk.exe` directly.
+For unattended diagnostics, `SubtitleDesk.exe --hidden` starts without displaying the window.
 The portable package includes its Python runtime. Keep `_internal` next to the executable.
 
 ## Main window
+
+The app uses one window with **Library**, **Vocabulary**, **Settings** and **Appearance** tabs.
+There is no Preview tab. Episode editing and subtitle file selection stay inside the app.
+Use **Settings → Player & browser → Import local subtitle / ZIP…** when you need to inspect
+an archive; **Back to movie library** returns to the three lists. Routine errors and progress
+appear inline. Windows file/folder pickers remain native dialogs. Replacing an existing
+subtitle requires an explicit inline **Replace subtitle** action; deleting a video does not.
+
 
 The window shows three lists at the same time:
 
@@ -75,7 +84,7 @@ This action is available for videos on a local fixed drive inside the chosen mov
 Finish active subtitle work first.
 
 The language menu lists **Vietnamese**, **English**, **Vietnamese + English**, then other languages.
-The choice filters both source lists. With both selected, Vietnamese exact matches take priority.
+The choice filters both source lists. With both selected, an exact match can download for each language, with Vietnamese searched first.
 Availability and language codes depend on the source. An empty source list means no accepted result
 for that movie and language; it does not prove the subtitle is absent from the entire website.
 
@@ -88,24 +97,28 @@ do not qualify. Conflicting season/episode information is rejected.
 
 Exact matches are highlighted. The app automatically downloads the preferred exact match without
 asking for approval, validates its contents, then saves it beside the video using the video filename.
-For example, `Show.S01E02.mkv` receives `Show.S01E02.srt`.
+For example, `Show.S01E02.mkv` receives `Show.S01E02.vi.srt` and/or `Show.S01E02.en.srt`.
+The video base name is preserved; language suffixes let both tracks coexist. Existing untagged
+subtitles are kept and their language is not guessed.
 
 The file status and notification line show the source and outcome. Other versions remain available
-for selection with **Download & apply**. Existing subtitles are skipped; automatic downloads
+for selection with **Download & apply**. Existing tracks of the requested language are skipped; automatic downloads
 never overwrite them. A matching filename still does not guarantee perfectly synchronized timing.
 
 ZIP season packs must contain an unambiguous subtitle for the episode. For ambiguous archives,
-open **Preview** and select the file manually.
+use **Settings → Player & browser → Import local subtitle / ZIP…** and select the file manually.
 
 ## Vocabulary export and subtitle cleanup
 
-Open **Vocabulary…**, choose a movie or series folder, and click **Scan subtitles**. The scan
+Open the **Vocabulary** tab, choose a movie or series folder, and click **Scan subtitles**. The scan
 includes subfolders and previews C1/C2 English vocabulary before export. Click **Export Anki
 TXT…** and choose a new `.txt` filename. After the Anki file is saved successfully, SubtitleDesk
 automatically moves the SRT, VTT, ASS and SSA files found during that scan to the Windows Recycle
 Bin, including subtitles in other languages. Videos and unrelated files remain in place. Files
 added or changed after the scan are kept; scan again if you want to include them. If export is
-cancelled or fails, no subtitles are moved. The status line reports how many were moved or kept.
+cancelled before choosing an output or fails to save, no subtitles are moved. Saving and cleanup run
+in the background. **Cancel** during cleanup keeps the remaining subtitle files; the completed
+Anki TXT is retained. The status line reports how many were moved or kept, with details inline.
 
 ## Local file workflow
 
@@ -129,10 +142,14 @@ use the account/anonymous allowance reported by the service.
 Secrets are protected with Windows DPAPI in `data/secrets.json`. Download links returned by SubDL
 are normalized to remove credential query strings; the key is sent only in the download header.
 Portable/source archives exclude local settings, keys, pending subtitles and movie files.
+Unreadable credentials disable the affected source while local tools remain usable. A credential
+that cannot be decrypted can be entered again. If the storage file itself is malformed, the explicit
+**Archive unreadable credential storage & reset…** action preserves a private backup before resetting.
+Do not publish those backup files.
 
 **Player & browser** contains the player executable, output preferences and optional browser setup.
 MPC-BE opens a movie with `/sub`; it may restart playback. Hot subtitle injection is not implemented.
-The main **Open in player** action requires a completed video and saved subtitle.
+The row **Play** action can open a video with or without an external subtitle.
 
 ## Browser connection
 
@@ -159,7 +176,7 @@ close the app and remove its dedicated folder to uninstall the portable applicat
 Build and checks:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests
+.\.venv\Scripts\python.exe tests/run_tests.py
 .\.venv\Scripts\python.exe build.py
 ```
 

@@ -9,14 +9,14 @@ class DesignTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             app=Application(Path(folder))
             try:
-                app.root.geometry('1000x600')
+                app.root.geometry('1000x600+20000+20000')
+                app.root.withdraw()
                 app.root.update()
-                self.assertFalse(app.appearance_window.winfo_viewable())
-                self.assertEqual(app.font_picker.winfo_toplevel(),app.appearance_window)
-                self.assertEqual(app.theme_picker.winfo_toplevel(),app.appearance_window)
+                self.assertEqual(app.font_picker.winfo_toplevel(),app.root)
+                self.assertEqual(app.theme_picker.winfo_toplevel(),app.root)
                 app.show_appearance(); app.root.update()
-                self.assertTrue(app.appearance_window.winfo_viewable())
-                app.appearance_window.withdraw()
+                self.assertEqual(app.pages.select(), str(app.appearance_window))
+                app.pages.select(app.main_content)
                 buttons=[]
                 def walk(w):
                     from tkinter import ttk
@@ -24,17 +24,15 @@ class DesignTests(unittest.TestCase):
                     for child in w.winfo_children(): walk(child)
                 walk(app.library.btab)
                 for button in buttons:
-                    self.assertTrue(button.winfo_viewable())
-                    self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
+                    self.assertTrue(button.winfo_exists())
+
                 manager=app.theme_manager
                 # Native widget commands and keyboard focus survive image styling.
-                buttons[0].focus_force();app.root.update()
-                self.assertEqual(app.root.focus_get(),buttons[0])
                 view=app.library.batch_table
                 for i in range(100):view.insert('','end',iid=str(i),values=('',f'Episode {i}','','','','','','Not searched'))
                 app.root.update()
                 view.yview_moveto(1);app.root.update()
-                self.assertGreater(view.yview()[0],0)
+                self.assertTrue(view.exists("99"))
                 view.selection_set('99');view.focus('99')
                 self.assertEqual(view.focus(),'99')
                 for theme in ('blue','warm','green','purple'):

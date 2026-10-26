@@ -32,7 +32,8 @@ class BatchTests(unittest.TestCase):
             (root / "Show.S01E01.vi.srt").write_bytes(SRT)
             rows = scan_folder(root)
             self.assertEqual([r.movie.episode for r in rows], ["1", "2"])
-            self.assertFalse(rows[0].enabled)
+            self.assertTrue(rows[0].enabled)  # English is still missing.
+            self.assertFalse(scan_folder(root, languages=("vi",))[0].enabled)
             self.assertTrue(rows[1].enabled)
 
     def test_rank_rejects_wrong_episode_and_language(self):

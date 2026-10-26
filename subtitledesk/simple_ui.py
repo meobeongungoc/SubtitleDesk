@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from .library_ui import LibraryUI, table
-from .batch import scan_folder, rank, exact_filename
+from .batch import scan_folder, rank, exact_filename, existing_subtitle
 from .core import match_score
 from .providers import Query
 from .storage import dialog_directory
@@ -42,23 +42,11 @@ class SimpleLibraryUI(LibraryUI):
         bar = ttk.Frame(self.btab)
         bar.pack(fill="x", pady=(0, 9))
         primary = ttk.Frame(bar)
-        utility = ttk.Frame(bar)
-        primary.grid(row=0, column=0, sticky='w')
-        utility.grid(row=0, column=1, sticky='e')
-        bar.columnconfigure(1, weight=1)
-        def reflow(event):
-            compact = event.width < primary.winfo_reqwidth() + utility.winfo_reqwidth() + 12
-            utility.grid(row=1 if compact else 0, column=0 if compact else 1,
-                         columnspan=2 if compact else 1, sticky='e', pady=(5,0) if compact else 0)
-        bar.bind('<Configure>', reflow)
+        primary.pack(side="left")
         ttk.Button(primary, text="Library folder…", style="Accent.TButton", command=self.scan).pack(side="left")
         ttk.Button(primary, text="Refresh", image=icon("refresh"), compound="left", command=self.refresh_library).pack(side="left", padx=(6,0))
         ttk.Button(primary, text="Find subtitles", image=icon("search"), compound="left", command=self.search_batch).pack(side="left", padx=8)
         ttk.Button(primary, text="Cancel", image=icon("close"), compound="left", command=self.cancel_batch_work).pack(side="left")
-        ttk.Button(utility, text="Settings", image=icon("settings"), compound="left", command=lambda: self.app.show_tools(self.app.sources)).pack(side="right")
-        ttk.Button(utility, text="Appearance", image=icon("appearance"), compound="left", command=self.app.show_appearance).pack(side="right", padx=5)
-        ttk.Button(utility, text="Preview", image=icon("play"), compound="left", command=lambda: self.app.show_tools(self.app.workflow)).pack(side="right", padx=5)
-        ttk.Button(utility, text="Vocabulary…", command=self.show_vocabulary).pack(side="right", padx=5)
         info = ttk.Frame(self.btab)
         info.pack(fill="x", pady=(0, 9))
         self.language_label = tk.StringVar(value=CODE_TO_LABEL.get(self.language.get(), "Vietnamese"))
@@ -134,18 +122,16 @@ class SimpleLibraryUI(LibraryUI):
         footer.pack(side='bottom', fill='x', before=self.panes, pady=(10,0))
         self.bstatus = tk.StringVar(value="Exact filename matches are highlighted and downloaded automatically.")
         ttk.Label(footer, textvariable=self.bstatus, wraplength=1080).pack(anchor="w", pady=(0,3))
-        self.notice = tk.StringVar(value="Existing subtitles are skipped. Video files are never renamed.")
+        self.notice = tk.StringVar(value="Language tracks are saved beside each video; existing files are protected.")
         ttk.Label(footer, textvariable=self.notice, style="Hint.TLabel", wraplength=1080).pack(anchor="w")
 
     def show_vocabulary(self):
         from .vocabulary_ui import VocabularyWindow
         current = getattr(self, 'vocabulary_window', None)
-        if current and current.window.winfo_exists():
-            current.window.deiconify()
-            current.window.lift()
-            return
-        folder = self.library_folders.get(self.movie_choice.get(), getattr(self, 'current_folder', ''))
-        self.vocabulary_window = VocabularyWindow(self.app, folder)
+        if not current or current.closed:
+            folder = self.library_folders.get(self.movie_choice.get(), getattr(self, 'current_folder', ''))
+            self.vocabulary_window = VocabularyWindow(self.app, folder)
+        self.app.pages.select(self.app.vocabulary_page)
 
     def set_rows(self, rows):
         self.automatic_rows.clear()
@@ -167,7 +153,7 @@ class SimpleLibraryUI(LibraryUI):
                 self.automatic_rows.add(index)
             if row.saved and self.reported_saves.get(index) != row.saved:
                 self.reported_saves[index] = row.saved
-                prefix = "Auto-saved" if index in self.automatic_rows else "Saved"
+                prefix = "Auto-saved" if index in self.automatic_rows or row.state.startswith("Auto-saved") else "Saved"
                 self.notice.set(f"{prefix} from {row.selected.provider}: {row.saved}"
                                 if row.selected else f"{prefix} subtitle: {row.saved}")
         self.show_candidates()
@@ -176,6 +162,12 @@ class SimpleLibraryUI(LibraryUI):
     def show_candidates(self):
         index = self.selected_row()
         row = self.rows[index] if index is not None and index < len(self.rows) else None
+        signature = (index, row.path if row else None,
+                     tuple((score, result, row.saved_result_ids.get(result.language)) for score, result in row.candidates) if row else (),
+                     row.saved if row else "")
+        if getattr(self, '_candidate_signature', None) == signature:
+            return
+        self._candidate_signature = signature
         for provider, view in self.source_views.items():
             selected = view.selection()
             view.delete(*view.get_children())
@@ -185,7 +177,7 @@ class SimpleLibraryUI(LibraryUI):
                     if result.provider != provider:
                         continue
                     is_exact = exact_filename(row.path, result)
-                    is_saved = bool(row.saved and row.selected == result)
+                    is_saved = row.saved_result_ids.get(result.language) == (result.provider, result.id)
                     view.insert("", "end", iid=str(candidate_index), values=(result.filename or result.release,
                         result.language, "Saved" if is_saved else "Exact filename" if is_exact else "Choose"),
                         tags=("saved" if is_saved else "exact" if is_exact else "",))
@@ -269,7 +261,7 @@ class SimpleLibraryUI(LibraryUI):
             for row in rows:
                 validate_video(row.path, Path(library_root))
         except (OSError, ValueError) as exc:
-            messagebox.showerror("Cannot move videos", str(exc), parent=self.root)
+            self.bstatus.set(str(exc))
             return
         moved, failures = [], []
         for index, row in zip(selected, rows):
@@ -289,7 +281,7 @@ class SimpleLibraryUI(LibraryUI):
             self.bstatus.set(f"Moved {len(moved)} video(s) to the Recycle Bin.")
             self.notice.set("Video files moved to the Recycle Bin. Subtitle files were left in place.")
         if failures:
-            messagebox.showerror("Some videos were not moved", "\n".join(failures[:8]), parent=self.root)
+            self.notice.set("; ".join(failures[:8]))
             self.bstatus.set(f"Moved {len(moved)} video(s); {len(failures)} could not be moved.")
 
     def scan(self):
@@ -318,6 +310,8 @@ class SimpleLibraryUI(LibraryUI):
             excluded.append(root / app_home.relative_to(root).parts[0])
         def done(found):
             self.library_refreshing = False
+            if folder != self.app.settings.get("library_root", ""):
+                return
             if found is None:
                 self.bstatus.set('Could not scan the library. Check the folder and try Refresh library.')
                 return
@@ -333,7 +327,7 @@ class SimpleLibraryUI(LibraryUI):
                 self.movie_choice.set(next(iter(found)))
             if not self.batch_busy:
                 self.select_library_movie()
-        self.run(lambda: discover_library(folder, excluded), done)
+        self.run(lambda: discover_library(folder, excluded), done, scoped=False)
 
     def select_library_movie(self, event=None):
         if self.batch_busy:
@@ -358,7 +352,8 @@ class SimpleLibraryUI(LibraryUI):
                 self.current_folder = str(folder)
                 self.set_rows(rows)
                 self.bstatus.set("Select a movie to compare both sources. Click Find subtitles to search the folder.")
-        self.run(lambda: scan_folder(folder, recursive, title, season), done)
+        languages = tuple(self.app.languages())
+        self.run(lambda: scan_folder(folder, recursive, title, season, languages), done)
 
     def search_batch(self):
         if self.batch_busy or not self.rows:
@@ -373,14 +368,21 @@ class SimpleLibraryUI(LibraryUI):
         self.cancel_batch = threading.Event()
         self.batch_busy = True
         encoding = self.app.encoding.get()
+        generation = self.generation
+        cancel = self.cancel_batch
+        snapshot = [replace(row, saved_languages=dict(row.saved_languages)) for row in self.rows]
+        def post(kind, index, row):
+            self.events.put((kind, generation, index, row.path, replace(row, saved_languages=dict(row.saved_languages))))
         def job():
-            for index, original in enumerate(self.rows):
-                if self.cancel_batch.is_set():
+            for index, original in enumerate(snapshot):
+                if cancel.is_set():
                     break
-                if not original.enabled:
+                if original.ambiguous:
+                    continue
+                if all(existing_subtitle(original.path, lang) for lang in languages):
                     continue
                 row = replace(original, candidates=[], selected=None, state="Searching…")
-                self.events.put(("row", index, replace(row)))
+                post("row", index, row)
                 found, errors = [], []
                 def emit(kind, key, value):
                     if kind == "result":
@@ -396,11 +398,16 @@ class SimpleLibraryUI(LibraryUI):
                             found.append((score, value))
                     elif kind == "error":
                         errors.append(f"{key}: {value}")
-                self.app.engine.run(Query(row.movie, languages), ids, self.cancel_batch, emit)
+                self.app.engine.run(Query(row.movie, languages), ids, cancel, emit)
                 found.sort(key=lambda v: (not exact_filename(row.path, v[1]), languages.index(v[1].language), -v[0]))
                 row.candidates = found
-                exact = [r for _, r in found if exact_filename(row.path, r)]
-                if self.cancel_batch.is_set():
+                exact = []
+                exact_languages = set()
+                for _, result in found:
+                    if exact_filename(row.path, result) and result.language not in exact_languages:
+                        exact.append(result)
+                        exact_languages.add(result.language)
+                if cancel.is_set():
                     row.state = "Cancelled"
                 elif exact:
                     row.selected = exact[0]
@@ -409,19 +416,24 @@ class SimpleLibraryUI(LibraryUI):
                     row.state = "Choose a subtitle"
                 else:
                     row.state = "; ".join(errors) or "No matching results"
-                self.events.put(("row", index, row))
-                if exact and not self.cancel_batch.is_set():
-                    try:
-                        prepared_row = self.process_subtitle(replace(row), index, encoding)
-                        self.events.put(("saved", index, prepared_row))
-                    except Exception as exc:
-                        from .sources import error_text
-                        row.state = str(exc) if isinstance(exc, ValueError) else error_text(exc)
-                        self.events.put(("row", index, row))
+                post("row", index, row)
+                if exact and not cancel.is_set():
+                    for result in exact:
+                        if cancel.is_set():
+                            break
+                        try:
+                            row = self.process_subtitle(replace(row, selected=result), index, encoding, cancel)
+                            row.state = "Auto-saved: " + ", ".join(row.saved_languages)
+                            post("saved", index, row)
+                        except Exception as exc:
+                            from .sources import error_text
+                            row.state = str(exc) if isinstance(exc, ValueError) else error_text(exc)
+                            post("row", index, row)
             return True
         def done(_):
             self.batch_busy = False
-            self.bstatus.set("Search finished. Exact filenames download automatically; choose other versions in either source list.")
+            self.bstatus.set("Search cancelled. Saved subtitles were retained." if cancel.is_set() else
+                             "Search finished. Exact filenames download automatically; choose other versions in either source list.")
         self.run(job, done)
 
     def download_choice(self, provider):

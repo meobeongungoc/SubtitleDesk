@@ -17,14 +17,14 @@ from .bridge import validate_message
 from .core import (Movie, MAX_ARCHIVE, SUB_EXTENSIONS, decode_subtitle, match_score,
                    parse_movie, save_subtitle, unpack_subtitles)
 from .providers import Context, Query, SearchEngine, load_registry
-from .storage import SecretStore, load_settings, write_json
+from .storage import CredentialError, SecretStore, load_settings, write_json
 from .players import ADAPTERS, launch
 from .sources import error_text
 from .themes import ThemeManager, THEMES
 
 
 class Application:
-    def __init__(self, home: Path):
+    def __init__(self, home: Path, hidden=False):
         self.home = home
         self.data = home / "data"
         self.data.mkdir(exist_ok=True)
@@ -37,21 +37,30 @@ class Application:
                     os.environ.setdefault(variable, str(location))
         try:
             from tkinterdnd2 import TkinterDnD, DND_FILES
-            self.root = TkinterDnD.Tk()
+            class DropRoot(tk.Tk, TkinterDnD.DnDWrapper):
+                pass
+            self.root = DropRoot()
+            if hidden:
+                self.root.withdraw()
+            # tkdnd can process idle events while loading. Hide before loading it.
+            TkinterDnD.require(self.root)
             self.dnd_type = DND_FILES
         except ImportError:
             self.root = tk.Tk()
             self.dnd_type = None
+        if hidden:
+            self.root.withdraw()
         self.root.title(f"SubtitleDesk {__version__}")
         self.root.minsize(1000, 600)
         self.settings_ok = True
+        self.startup_notice = ""
         try:
             self.settings = load_settings(self.data)
         except ValueError as exc:
             from .storage import DEFAULTS
             self.settings = DEFAULTS.copy()
             self.settings_ok = False
-            messagebox.showwarning("Settings", str(exc))
+            self.startup_notice = str(exc)
         geometry = self.settings["geometry"]
         self.root.geometry(geometry if re.fullmatch(r"\d+x\d+(?:[+-]\d+){0,2}", geometry) else "1080x780")
         self.secrets = SecretStore(self.data)
@@ -79,7 +88,7 @@ class Application:
         self.output_dir = tk.StringVar(value=self.settings["output_dir"])
         self.beside = tk.BooleanVar(value=self.settings["save_beside"])
         self.encoding = tk.StringVar(value="auto")
-        self.status = tk.StringVar(value="Ready — choose a folder or import subtitles.")
+        self.status = tk.StringVar(value=self.startup_notice or "Ready — choose a folder or import subtitles.")
         self.build_ui()
         from .simple_ui import SimpleLibraryUI
         self.library = SimpleLibraryUI(self)
@@ -95,12 +104,20 @@ class Application:
         self.theme_manager.set_glass(self.settings.get('glass_strength', 10))
         outer = ttk.Frame(self.root, padding=10)
         outer.pack(fill="both", expand=True)
-        self.appearance_window = tk.Toplevel(self.root)
-        self.appearance_window.title("SubtitleDesk — Appearance")
-        self.appearance_window.geometry("720x380")
-        self.appearance_window.minsize(640, 340)
-        self.appearance_window.protocol("WM_DELETE_WINDOW", self.appearance_window.withdraw)
-        self.appearance_window.withdraw()
+        self.pages = ttk.Notebook(outer)
+        self.pages.pack(fill="both", expand=True)
+        self.main_content = ttk.Frame(self.pages)
+        self.workflow = ttk.Frame(self.main_content, padding=12)
+        self.vocabulary_page = ttk.Frame(self.pages)
+        self.tools_window = ttk.Frame(self.pages)
+        self.appearance_window = ttk.Frame(self.pages)
+        for frame, label in ((self.main_content, "Library"), (self.vocabulary_page, "Vocabulary"), (self.tools_window, "Settings"),
+                             (self.appearance_window, "Appearance")):
+            self.pages.add(frame, text=label)
+        self.editor_page = ttk.Frame(self.pages, padding=12)
+        self.pages.bind("<<NotebookTabChanged>>", self.page_changed)
+        self.confirmation = ttk.Frame(outer, padding=(0, 6))
+        self.pending_confirmation = None
         appearance_body = ttk.Frame(self.appearance_window, padding=22)
         appearance_body.pack(fill="both", expand=True)
         appearance = ttk.Frame(appearance_body)
@@ -136,22 +153,14 @@ class Application:
         self.font_picker.bind('<KeyRelease>', self.filter_fonts)
         ttk.Label(appearance_body, text="Changes are saved automatically.\nTransparency affects the entire window. Choose any installed font and one of the four themes.",
                   style="Hint.TLabel", wraplength=650).pack(anchor="w", pady=(6, 0))
-        self.main_content = ttk.Frame(outer)
-        self.main_content.pack(fill="both", expand=True)
-        self.tools_window = tk.Toplevel(self.root)
-        self.tools_window.title("SubtitleDesk — Settings & tools")
-        self.tools_window.geometry("1080x780")
-        self.tools_window.protocol("WM_DELETE_WINDOW", self.tools_window.withdraw)
-        self.tools_window.withdraw()
         notebook = ttk.Notebook(self.tools_window)
         notebook.pack(fill="both", expand=True)
-        self.workflow = ttk.Frame(notebook, padding=12)
         self.sources = ttk.Frame(notebook, padding=12)
         self.preferences = ttk.Frame(notebook, padding=12)
-        notebook.add(self.workflow, text="Single file")
         notebook.add(self.sources, text="Sources")
         notebook.add(self.preferences, text="Player & browser")
         self.notebook = notebook
+        ttk.Button(self.workflow, text="Back to movie library", command=self.show_library).pack(anchor="w", pady=(0, 8))
         movie_row = ttk.Frame(self.workflow)
         movie_row.pack(fill="x")
         ttk.Label(movie_row, text="Video file", width=12).pack(side="left")
@@ -229,22 +238,95 @@ class Application:
         self.saved_label.pack(side="left")
         self.build_sources()
         self.build_preferences()
-        ttk.Label(outer, textvariable=self.status, style="Hint.TLabel", wraplength=1000).pack(side="bottom", anchor="w", pady=(10, 0), before=self.main_content)
+        ttk.Label(outer, textvariable=self.status, style="Hint.TLabel", wraplength=1000).pack(side="bottom", anchor="w", pady=(10, 0), before=self.pages)
+
+    def notify(self, text):
+        self.status.set(text)
+
+    def page_changed(self, event=None):
+        if self.pages.select() == str(self.vocabulary_page) and hasattr(self, "library"):
+            self.library.show_vocabulary()
 
     def show_appearance(self):
-        self.appearance_window.deiconify()
-        self.appearance_window.lift()
+        self.pages.select(self.appearance_window)
 
     def show_tools(self, frame):
-        self.notebook.select(frame)
-        self.tools_window.deiconify()
-        self.tools_window.lift()
+        if frame == self.workflow:
+            self.library.btab.pack_forget()
+            self.workflow.pack(fill="both", expand=True)
+            self.pages.select(self.main_content)
+        else:
+            self.notebook.select(frame)
+            self.pages.select(self.tools_window)
+
+    def show_library(self):
+        self.workflow.pack_forget()
+        self.library.btab.pack(fill="both", expand=True)
+        self.pages.select(self.main_content)
+
+    def inline_editor(self, title):
+        for child in self.editor_page.winfo_children():
+            child.destroy()
+        if str(self.editor_page) not in self.pages.tabs():
+            self.pages.add(self.editor_page, text=title)
+        else:
+            self.pages.tab(self.editor_page, text=title)
+        ttk.Button(self.editor_page, text="Back to Library", command=self.close_editor).pack(anchor="w", pady=(0, 12))
+        self.pages.select(self.editor_page)
+        return self.editor_page
+
+    def close_editor(self):
+        self.pages.select(self.main_content)
+        if str(self.editor_page) in self.pages.tabs():
+            self.pages.forget(self.editor_page)
+
+    def confirm_inline(self, text, action, label="Confirm"):
+        for child in self.confirmation.winfo_children():
+            child.destroy()
+        self.pending_confirmation = action
+        ttk.Label(self.confirmation, text=text, wraplength=650).pack(side="left", fill="x", expand=True)
+        ttk.Button(self.confirmation, text=label, command=self.accept_confirmation).pack(side="left", padx=6)
+        ttk.Button(self.confirmation, text="Cancel", command=self.cancel_confirmation).pack(side="left")
+        self.confirmation.pack(fill="x", before=self.pages)
+
+    def accept_confirmation(self):
+        action = self.pending_confirmation
+        self.cancel_confirmation()
+        if action:
+            action()
+
+    def cancel_confirmation(self):
+        self.pending_confirmation = None
+        self.confirmation.pack_forget()
+
+    def scrollable(self, parent):
+        canvas = tk.Canvas(parent, highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        body = ttk.Frame(canvas, padding=8)
+        item = canvas.create_window(0, 0, anchor="nw", window=body)
+        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(item, width=e.width))
+        def wheel(event):
+            target = event.widget
+            if isinstance(target, (ttk.Combobox, ttk.Treeview, tk.Text)):
+                return
+            while target is not None:
+                if target == body:
+                    canvas.yview_scroll(-int(event.delta / 120), "units")
+                    return "break"
+                target = getattr(target, "master", None)
+        self.root.bind("<MouseWheel>", wheel, add="+")
+        return body
 
     def build_sources(self):
-        ttk.Label(self.sources, text="Your sources", font=("Segoe UI", 14, "bold")).pack(anchor="w")
+        content = self.scrollable(self.sources)
+        ttk.Label(content, text="Your sources", font=("Segoe UI", 14, "bold")).pack(anchor="w")
         self.enabled = {}
         if not self.registry.providers:
-            ttk.Label(self.sources, text="No subtitle sources configured\n\n"
+            ttk.Label(content, text="No subtitle sources configured\n\n"
                       "Import, preview, save and open local subtitles without an online source.\n"
                       "Additional providers can be added independently.\n"
                       "The application does not show sample search results.",
@@ -253,10 +335,10 @@ class Application:
             caps = provider.capabilities
             enabled = tk.BooleanVar(value=key not in self.settings["disabled_sources"])
             self.enabled[key] = enabled
-            box = ttk.LabelFrame(self.sources, text=caps.name, padding=10)
+            box = ttk.LabelFrame(content, text=caps.name, padding=10)
             box.pack(fill="x", pady=6)
             ttk.Checkbutton(box, text="Enable source", variable=enabled).pack(anchor="w")
-            ttk.Label(box, text=f"Languages: {', '.join(caps.languages)} • Timeout: {caps.timeout}s").pack(anchor="w")
+            ttk.Label(box, text=f"{len(caps.languages)} supported languages • Timeout: {caps.timeout}s").pack(anchor="w")
             ttk.Label(box, text=("Get an API key at subdl.com/panel."
                                 if key == "subdl" else
                                 "API key: opensubtitles.com/consumers. Username/password are optional for account downloads."),
@@ -269,17 +351,28 @@ class Application:
                 ttk.Entry(row, textvariable=value, show="•").pack(side="left", fill="x", expand=True)
                 ttk.Button(row, text="Save", command=lambda k=key, f=field, v=value:
                            self.save_secret(k, f, v)).pack(side="left", padx=5)
-                stored = bool(self.secrets.get(key, field))
-                indicator = ttk.Label(row, text="Saved" if stored else "Not entered", width=12)
+                try:
+                    stored = bool(self.secrets.get(key, field))
+                    state = "Saved" if stored else "Not entered"
+                except CredentialError as exc:
+                    enabled.set(False)
+                    state = "Unreadable"
+                    self.startup_notice = str(exc)
+                    self.status.set(str(exc))
+                indicator = ttk.Label(row, text=state, width=12)
                 indicator.pack(side="left")
                 if not hasattr(self, "secret_indicators"):
                     self.secret_indicators = {}
                 self.secret_indicators[(key, field)] = indicator
+        ttk.Button(content, text="Archive unreadable credential storage & reset…",
+                   command=lambda: self.confirm_inline(
+                       "Archive the existing credential file and reset saved keys? The backup stays in the private data folder.",
+                       self.reset_credentials, "Archive & reset")).pack(anchor="w", pady=6)
         if self.registry.providers:
             self.source_note.configure(text=f"{len(self.registry.providers)} available sources")
 
     def build_preferences(self):
-        frame = self.preferences
+        frame = self.scrollable(self.preferences)
         ttk.Label(frame, text="Settings", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 10))
         for label, variable, browse in (
             ("Preferred language codes, comma-separated", self.language, None),
@@ -303,6 +396,7 @@ class Application:
                   "live subtitle injection is not supported. More players can use separate adapters.",
                   style="Hint.TLabel").pack(anchor="w", pady=8)
         ttk.Button(frame, text="Save settings", command=self.persist).pack(anchor="w")
+        ttk.Button(frame, text="Import local subtitle / ZIP…", command=self.import_dialog).pack(anchor="w", pady=8)
         ttk.Separator(frame).pack(fill="x", pady=18)
         ttk.Label(frame, text="Browser connection", font=("Segoe UI", 14, "bold")).pack(anchor="w")
         ttk.Label(frame, text="One extension for Edge / Chrome; a separate package for Firefox.\n"
@@ -321,8 +415,19 @@ class Application:
             self.secret_indicators[(key, field)].configure(text="Saved" if variable.get() else "Not entered")
             variable.set("")
             self.status.set("Saved with Windows DPAPI. Save an empty value to remove this field.")
+        except CredentialError as exc:
+            self.notify(str(exc))
         except Exception:
-            messagebox.showerror("Save", "Could not save the Windows-protected credential.")
+            self.notify("Could not save the Windows-protected credential.")
+
+    def reset_credentials(self):
+        try:
+            self.secrets.reset()
+            for indicator in self.secret_indicators.values():
+                indicator.configure(text="Not entered")
+            self.notify("Previous credential storage archived. Enter your keys and enable the sources you want.")
+        except OSError:
+            self.notify("Could not archive credential storage. No credentials were reset.")
 
     def set_movie(self, value):
         self.vars["movie"].set(value)
@@ -354,9 +459,12 @@ class Application:
             self.output_dir.set(value)
 
     def drop(self, event):
+        if self.library.batch_busy or self.library.library_refreshing:
+            self.notify("Finish or cancel the current library task before dropping another file.")
+            return event.action
         files = self.root.tk.splitlist(event.data)
         if len(files) != 1:
-            messagebox.showinfo("Drag and drop", "Drop one video or subtitle/ZIP file at a time.")
+            self.notify("Drop one video or subtitle/ZIP file at a time.")
         elif Path(files[0]).is_dir():
             self.library.load_folder(files[0])
         elif Path(files[0]).suffix.lower() in SUB_EXTENSIONS | {".zip", ".rar", ".7z"}:
@@ -393,7 +501,7 @@ class Application:
         try:
             movie = self.current_movie()
         except ValueError as exc:
-            messagebox.showinfo("Find subtitles", str(exc))
+            self.notify(str(exc))
             return
         self.search_cancel = threading.Event()
         self.search_id += 1
@@ -460,6 +568,7 @@ class Application:
                                           filetypes=[("Subtitle / ZIP", "*.srt *.ass *.ssa *.vtt *.zip")])
         if value:
             self.import_file(value)
+            self.show_tools(self.workflow)
 
     def import_file(self, value):
         try:
@@ -472,7 +581,7 @@ class Application:
             self.downloading = False
             self.set_candidates(candidates)
         except Exception as exc:
-            messagebox.showerror("Import subtitle", str(exc))
+            self.notify(str(exc))
 
     def set_candidates(self, candidates):
         self.candidates = candidates
@@ -503,9 +612,9 @@ class Application:
         self.preview.insert("1.0", preview)
         self.preview.configure(state="disabled")
 
-    def save(self):
+    def save(self, on_saved=None):
         if self.selected_data is None:
-            messagebox.showinfo("Save subtitle", "Choose a valid subtitle and encoding before saving.")
+            self.notify("Choose a valid subtitle and encoding before saving.")
             return None
         movie = Path(self.vars["movie"].get()) if self.vars["movie"].get() else None
         directory = self.output_dir.get() or str(self.home)
@@ -527,27 +636,50 @@ class Application:
             if movie and (destination.resolve() == movie.resolve()
                           or (destination.exists() and movie.exists() and destination.samefile(movie))):
                 raise ValueError("Video files must never be overwritten.")
-            overwrite = destination.exists()
-            if overwrite and not messagebox.askyesno("Subtitle exists", f"Overwrite this subtitle?\n{destination}"):
+            def write(overwrite=False):
+                try:
+                    save_subtitle(destination, self.selected_data, overwrite=overwrite)
+                    self.saved_path = str(destination)
+                    self.saved_label.configure(text=f"Saved: {destination.name}")
+                    self.status.set(f"Saved subtitle: {destination}")
+                    if on_saved:
+                        on_saved(str(destination))
+                    return str(destination)
+                except Exception as exc:
+                    self.notify(str(exc))
+            if destination.exists():
+                # Capture bytes and paths now: an inline choice may be answered later.
+                data = bytes(self.selected_data)
+                def replace_existing():
+                    try:
+                        save_subtitle(destination, data, overwrite=True)
+                        self.saved_path = str(destination)
+                        self.saved_label.configure(text=f"Saved: {destination.name}")
+                        self.notify(f"Saved subtitle: {destination}")
+                        if on_saved:
+                            on_saved(str(destination))
+                    except Exception as exc:
+                        self.notify(str(exc))
+                self.confirm_inline(f"Replace existing subtitle {destination.name}?", replace_existing, "Replace subtitle")
                 return None
-            save_subtitle(destination, self.selected_data, overwrite=overwrite)
-            self.saved_path = str(destination)
-            self.saved_label.configure(text=f"Saved: {destination.name}")
-            self.status.set(f"Saved subtitle: {destination}")
-            return str(destination)
+            return write()
         except Exception as exc:
-            messagebox.showerror("Save subtitle", str(exc))
+            self.notify(str(exc))
             return None
 
     def save_and_open(self):
-        subtitle = self.saved_path or self.save()
-        if not subtitle:
-            return
-        try:
-            launch(self.player_kind.get(), self.player_path.get(), self.vars["movie"].get(), subtitle)
-            self.status.set("Opened the movie with subtitles in MPC-BE.")
-        except Exception as exc:
-            messagebox.showerror("Open player", str(exc))
+        movie = self.vars["movie"].get()
+        kind, executable = self.player_kind.get(), self.player_path.get()
+        def open_saved(subtitle):
+            try:
+                launch(kind, executable, movie, subtitle)
+                self.status.set("Opened the movie with subtitles in the configured player.")
+            except Exception as exc:
+                self.notify(str(exc))
+        if self.saved_path:
+            open_saved(self.saved_path)
+        else:
+            self.save(on_saved=open_saved)
 
     def filter_fonts(self, event=None):
         if event and event.keysym in ('Return','Escape','Up','Down','Left','Right'):
@@ -609,7 +741,7 @@ class Application:
     def persist(self, notify=True):
         if not self.settings_ok:
             if notify:
-                messagebox.showwarning("Settings", "settings.json is invalid and was not overwritten.")
+                self.notify("settings.json is invalid and was not overwritten.")
             return
         self.settings.update(languages=",".join(self.languages()), player_kind=self.player_kind.get(),
                              player_path=self.player_path.get(), output_dir=self.output_dir.get(),
@@ -621,7 +753,7 @@ class Application:
                 self.status.set("Settings saved.")
         except OSError:
             if notify:
-                messagebox.showerror("Settings", "Could not write settings to the data folder.")
+                self.notify("Could not write settings to the data folder.")
 
     def poll(self):
         if self.downloading and (self.download_cancel.is_set() or time.monotonic() > self.download_deadline):
@@ -702,8 +834,6 @@ class Application:
         self.status.set("Browser request received. Check the title, then search.")
         self.browser_note.set(f"Remaining: {len(self.browser_pending)} requests.")
         self.receive_button.configure(text=f"Receive from browser ({len(self.browser_pending)})")
-        self.root.deiconify()
-        self.root.lift()
 
     def run(self):
         # Recover unapplied messages from a previous launch.
@@ -716,6 +846,9 @@ class Application:
     def close(self):
         if hasattr(self, "library"):
             self.library.close()
+            vocabulary = getattr(self.library, "vocabulary_window", None)
+            if vocabulary:
+                vocabulary.stop()
         self.search_cancel.set()
         self.download_cancel.set()
         self.persist(notify=False)
